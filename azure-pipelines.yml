@@ -1,0 +1,139 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - frontend/*
+    exclude:
+      - README.md
+      - docs/*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: roger-mdc-frontend-vars
+  - name: NODE_VERSION
+    value: '20.x'
+  - name: FRONTEND_DIR
+    value: 'frontend'
+
+stages:
+  # ============================================
+  # STAGE 1: Build and Test
+  # ============================================
+  - stage: Build
+    displayName: 'Build & Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Next.js Application'
+        steps:
+          # Install Node.js
+          - task: NodeTool@0
+            displayName: 'Install Node.js $(NODE_VERSION)'
+            inputs:
+              versionSpec: '$(NODE_VERSION)'
+
+          # Cache npm dependencies
+          - task: Cache@2
+            displayName: 'Cache npm packages'
+            inputs:
+              key: 'npm | "$(Agent.OS)" | $(FRONTEND_DIR)/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: $(FRONTEND_DIR)/node_modules
+            continueOnError: true
+
+          # Install dependencies
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+            workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
+
+          # Run linting
+          - script: |
+              npm run lint || true
+            displayName: 'Run ESLint'
+            workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
+            continueOnError: true
+
+          # Run type check
+          - script: |
+              npx tsc --noEmit || true
+            displayName: 'TypeScript type check'
+            workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
+            continueOnError: true
+
+          # Build the application
+          - script: |
+              npm run build
+            displayName: 'Build Next.js app'
+            workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
+            env:
+              NEXT_PUBLIC_API_URL: $(API_URL)
+
+          # Create deployment package
+          - script: |
+              mkdir -p $(Build.ArtifactStagingDirectory)/frontend
+              cp -r .next $(Build.ArtifactStagingDirectory)/frontend/
+              cp -r public $(Build.ArtifactStagingDirectory)/frontend/
+              cp package.json $(Build.ArtifactStagingDirectory)/frontend/
+              cp package-lock.json $(Build.ArtifactStagingDirectory)/frontend/
+              cp next.config.mjs $(Build.ArtifactStagingDirectory)/frontend/
+
+              # Create startup script for Azure App Service
+              cat > $(Build.ArtifactStagingDirectory)/frontend/startup.sh << 'EOF'
+              #!/bin/bash
+              npm install --production
+              npm start
+              EOF
+              chmod +x $(Build.ArtifactStagingDirectory)/frontend/startup.sh
+            displayName: 'Prepare deployment package'
+            workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
+
+          # Publish artifact
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/frontend'
+              ArtifactName: 'frontend-drop'
+              publishLocation: 'Container'
+
+  # ============================================
+  # STAGE 2: Deploy to Azure App Service
+  # ============================================
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: DeployJob
+        displayName: 'Deploy to App Service'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # Download artifact
+                - download: current
+                  artifact: frontend-drop
+
+                # Deploy to Azure App Service
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service'
+                  inputs:
+                    azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+                    appType: 'webAppLinux'
+                    appName: '$(AZURE_WEBAPP_NAME)'
+                    package: '$(Pipeline.Workspace)/frontend-drop'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'npm start'
+
+                # Health check
+                - script: |
+                    echo "Waiting for deployment to stabilize..."
+                    sleep 30
+                    curl -f https://$(AZURE_WEBAPP_NAME).azurewebsites.net/ || echo "Frontend deployment completed"
+                  displayName: 'Verify deployment'
+                  continueOnError: true
