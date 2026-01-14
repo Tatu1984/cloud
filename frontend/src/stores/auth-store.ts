@@ -64,12 +64,12 @@ const mockProjects: Project[] = [
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: mockUser,
-      organization: mockOrganization,
-      currentProject: mockProjects[0],
-      projects: mockProjects,
-      isAuthenticated: true,
-      isAdmin: true,
+      user: null,
+      organization: null,
+      currentProject: null,
+      projects: [],
+      isAuthenticated: false,
+      isAdmin: false,
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setOrganization: (organization) => set({ organization }),
@@ -79,6 +79,8 @@ export const useAuthStore = create<AuthState>()(
       login: (user, organization) => set({
         user,
         organization,
+        currentProject: mockProjects[0],
+        projects: mockProjects,
         isAuthenticated: true,
         isAdmin: user.role === 'admin' || user.role === 'operator',
       }),
