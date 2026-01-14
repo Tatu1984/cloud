@@ -140,7 +140,7 @@ const tenantNavItems = [
 
 export function TenantSidebar() {
   const pathname = usePathname();
-  const { user, organization, currentProject, projects, setCurrentProject } = useAuthStore();
+  const { user, organization, currentProject, projects, setCurrentProject, logout } = useAuthStore();
 
   return (
     <Sidebar>
@@ -166,7 +166,7 @@ export function TenantSidebar() {
               {projects.map((project) => (
                 <DropdownMenuItem
                   key={project.id}
-                  onClick={() => setCurrentProject(project)}
+                  onSelect={() => setCurrentProject(project)}
                 >
                   {project.name}
                 </DropdownMenuItem>
@@ -258,7 +258,7 @@ export function TenantSidebar() {
                 <DropdownMenuItem asChild>
                   <Link href="/admin">Admin Console</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => logout()}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -342,7 +342,7 @@ const adminNavItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
   return (
     <Sidebar>
@@ -437,7 +437,7 @@ export function AdminSidebar() {
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard">User Dashboard</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => logout()}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

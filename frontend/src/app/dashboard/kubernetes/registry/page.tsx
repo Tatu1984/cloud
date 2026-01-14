@@ -79,7 +79,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuthStore } from "@/stores/auth-store";
+import { useToast } from "@/hooks/use-toast";
 
 // Container image interface
 interface ContainerImage {
@@ -460,6 +471,7 @@ function getVulnerabilityBadge(vulns: ContainerImage["vulnerabilities"]) {
 }
 
 export default function RegistryPage() {
+  const { toast } = useToast();
   const { currentProject } = useAuthStore();
   const [images, setImages] = useState<ContainerImage[]>(mockImages);
   const [stats] = useState<RegistryStats>(mockStats);
@@ -468,6 +480,9 @@ export default function RegistryPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ContainerImage | null>(null);
+
+  // Additional dialog states
+  const [deleteRepoOpen, setDeleteRepoOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -850,29 +865,43 @@ export default function RegistryPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => handleViewImage(image)}
+                            onSelect={() => handleViewImage(image)}
                           >
                             <Eye className="mr-2 h-4 w-4" />
                             View Tags
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() =>
+                            onSelect={() => {
                               copyToClipboard(
                                 `docker pull registry.cloudplatform.io/${image.repository}:latest`
-                              )
-                            }
+                              );
+                              toast({
+                                title: "Command copied",
+                                description: "Docker pull command copied to clipboard.",
+                              });
+                            }}
                           >
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Pull Command
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              toast({
+                                title: "Scanning for vulnerabilities",
+                                description: `Scanning ${image.name} for security issues...`,
+                              });
+                            }}
+                          >
                             <Shield className="mr-2 h-4 w-4" />
                             Scan for Vulnerabilities
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => handleDeleteImage(image.id)}
+                            onSelect={() => {
+                              setSelectedImage(image);
+                              setDeleteRepoOpen(true);
+                            }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete Repository
@@ -1156,6 +1185,36 @@ spec:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Repository Confirmation */}
+      <AlertDialog open={deleteRepoOpen} onOpenChange={setDeleteRepoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Repository</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedImage?.name}"? This will permanently delete all {selectedImage?.tags.length} image tags and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (selectedImage) {
+                  handleDeleteImage(selectedImage.id);
+                }
+                toast({
+                  title: "Repository deleted",
+                  description: `${selectedImage?.name} has been deleted.`,
+                });
+                setSelectedImage(null);
+              }}
+            >
+              Delete Repository
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 type UserRole = "admin" | "member" | "viewer";
 
@@ -233,6 +234,7 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export default function UsersPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -264,6 +266,49 @@ export default function UsersPage() {
     navigator.clipboard.writeText(`https://cloudplatform.io/invite/${invitationId}`);
     setCopiedInviteLink(invitationId);
     setTimeout(() => setCopiedInviteLink(null), 2000);
+  };
+
+  const handleViewProfile = (member: TeamMember) => {
+    toast({
+      title: "View Profile",
+      description: `Opening profile for ${member.name}`,
+    });
+  };
+
+  const handleEditPermissions = (member: TeamMember) => {
+    toast({
+      title: "Edit Permissions",
+      description: `Opening permission settings for ${member.name}`,
+    });
+  };
+
+  const handleChangeRole = (member: TeamMember) => {
+    toast({
+      title: "Change Role",
+      description: `Opening role selector for ${member.name}`,
+    });
+  };
+
+  const handleResetPassword = (member: TeamMember) => {
+    toast({
+      title: "Password Reset Email Sent",
+      description: `A password reset link has been sent to ${member.email}`,
+    });
+  };
+
+  const handleResendInvitation = (invitation: typeof pendingInvitations[0]) => {
+    toast({
+      title: "Invitation Resent",
+      description: `A new invitation has been sent to ${invitation.email}`,
+    });
+  };
+
+  const handleRevokeInvitation = (invitation: typeof pendingInvitations[0]) => {
+    toast({
+      title: "Invitation Revoked",
+      description: `Invitation for ${invitation.email} has been cancelled`,
+      variant: "destructive",
+    });
   };
 
   const adminCount = teamMembers.filter((m) => m.role === "admin").length;
@@ -529,14 +574,14 @@ export default function UsersPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Profile</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Permissions</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleViewProfile(member)}>View Profile</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEditPermissions(member)}>Edit Permissions</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleChangeRole(member)}>
                                 <Shield className="mr-2 h-4 w-4" />
                                 Change Role
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleResetPassword(member)}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Reset Password
                               </DropdownMenuItem>
@@ -647,7 +692,7 @@ export default function UsersPage() {
                                       </>
                                     )}
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleResendInvitation(invitation)}>
                                     <RefreshCw className="mr-2 h-4 w-4" />
                                     Resend Invitation
                                   </DropdownMenuItem>
@@ -656,14 +701,14 @@ export default function UsersPage() {
                               )}
                               {isExpired && (
                                 <>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleResendInvitation(invitation)}>
                                     <RefreshCw className="mr-2 h-4 w-4" />
                                     Send New Invitation
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>
                               )}
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleRevokeInvitation(invitation)}>
                                 <X className="mr-2 h-4 w-4" />
                                 {isExpired ? "Remove" : "Revoke Invitation"}
                               </DropdownMenuItem>

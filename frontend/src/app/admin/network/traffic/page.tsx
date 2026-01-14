@@ -14,9 +14,12 @@ import {
   RefreshCw,
   TrendingUp,
   Clock,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -40,14 +43,34 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import {
   ChartConfig,
   ChartContainer,
@@ -139,11 +162,67 @@ const chartConfig = {
   outbound: { label: "Outbound", color: "hsl(var(--chart-2))" },
 } satisfies ChartConfig;
 
+interface RateLimitRule {
+  id: string;
+  name: string;
+  target: string;
+  type: string;
+  limit: number;
+  window: string;
+  currentUsage: number;
+  status: string;
+}
+
 export default function TrafficPage() {
+  const { toast } = useToast();
   const [timeRange, setTimeRange] = useState("24h");
+  const [editRuleDialogOpen, setEditRuleDialogOpen] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [disableRuleDialogOpen, setDisableRuleDialogOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<RateLimitRule | null>(null);
 
   const totalInbound = trafficData.reduce((sum, d) => sum + d.inbound, 0);
   const totalOutbound = trafficData.reduce((sum, d) => sum + d.outbound, 0);
+
+  const handleEditRule = (rule: RateLimitRule) => {
+    setSelectedRule(rule);
+    setEditRuleDialogOpen(true);
+  };
+
+  const handleViewLogs = (rule: RateLimitRule) => {
+    setSelectedRule(rule);
+    setLogsDialogOpen(true);
+  };
+
+  const handleDisableRule = (rule: RateLimitRule) => {
+    setSelectedRule(rule);
+    setDisableRuleDialogOpen(true);
+  };
+
+  const confirmDisableRule = () => {
+    toast({
+      title: "Rule Disabled",
+      description: `${selectedRule?.name} has been disabled.`,
+    });
+    setDisableRuleDialogOpen(false);
+    setSelectedRule(null);
+  };
+
+  const saveRule = () => {
+    toast({
+      title: "Rule Updated",
+      description: `${selectedRule?.name} has been updated.`,
+    });
+    setEditRuleDialogOpen(false);
+    setSelectedRule(null);
+  };
+
+  const handleUnblockIP = (ip: string) => {
+    toast({
+      title: "IP Unblocked",
+      description: `${ip} has been removed from the blocklist.`,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -327,10 +406,16 @@ export default function TrafficPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Edit Rule</DropdownMenuItem>
-                              <DropdownMenuItem>View Logs</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEditRule(rule)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Rule
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleViewLogs(rule)}>
+                                View Logs
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDisableRule(rule)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
                                 Disable Rule
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -396,7 +481,7 @@ export default function TrafficPage() {
                         {ip.hits.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleUnblockIP(ip.ip)}>
                           Unblock
                         </Button>
                       </TableCell>
@@ -461,6 +546,107 @@ export default function TrafficPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Rule Dialog */}
+      <Dialog open={editRuleDialogOpen} onOpenChange={setEditRuleDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Rate Limit Rule</DialogTitle>
+            <DialogDescription>
+              Update configuration for {selectedRule?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Rule Name</Label>
+              <Input defaultValue={selectedRule?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Target</Label>
+              <Input defaultValue={selectedRule?.target} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Limit</Label>
+                <Input type="number" defaultValue={selectedRule?.limit} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Window</Label>
+                <Select defaultValue={selectedRule?.window}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1s">1 second</SelectItem>
+                    <SelectItem value="1m">1 minute</SelectItem>
+                    <SelectItem value="1h">1 hour</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Type</Label>
+              <Select defaultValue={selectedRule?.type}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="requests">Requests</SelectItem>
+                  <SelectItem value="connections">Connections</SelectItem>
+                  <SelectItem value="bandwidth">Bandwidth</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRuleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveRule}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Logs Dialog */}
+      <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Rate Limit Logs - {selectedRule?.name}</DialogTitle>
+            <DialogDescription>
+              Recent rate limiting activity
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted p-4 rounded-md font-mono text-sm h-64 overflow-y-auto">
+            <p className="text-muted-foreground">[2024-03-15 10:32:15] INFO: Request allowed (742/1000)</p>
+            <p className="text-yellow-500">[2024-03-15 10:32:10] WARN: Rate limit approaching (950/1000)</p>
+            <p className="text-red-500">[2024-03-15 10:32:05] ERROR: Rate limit exceeded - request blocked</p>
+            <p className="text-muted-foreground">[2024-03-15 10:32:00] INFO: Request allowed (890/1000)</p>
+            <p className="text-muted-foreground">[2024-03-15 10:31:55] INFO: Request allowed (650/1000)</p>
+            <p className="text-muted-foreground">[2024-03-15 10:31:50] INFO: Counter reset for new window</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable Rule Confirmation */}
+      <AlertDialog open={disableRuleDialogOpen} onOpenChange={setDisableRuleDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable Rate Limit Rule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disable "{selectedRule?.name}"? Traffic to {selectedRule?.target} will no longer be rate limited.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDisableRule}>Disable Rule</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

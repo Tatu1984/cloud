@@ -66,15 +66,28 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { mockBackups, mockBackupPolicies } from "@/stores/mock-data";
 import { useAuthStore } from "@/stores/auth-store";
 import { Backup, BackupPolicy } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 // Source type icons and colors
 const sourceTypeConfig: Record<Backup["sourceType"], { icon: React.ComponentType<{ className?: string }>; color: string; label: string }> = {
@@ -123,12 +136,25 @@ const formatFutureTime = (dateStr: string): string => {
 };
 
 export default function BackupsPage() {
+  const { toast } = useToast();
   const { currentProject } = useAuthStore();
   const [search, setSearch] = useState("");
   const [sourceTypeFilter, setSourceTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("backups");
+
+  // Dialog states for backups
+  const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [deleteBackupOpen, setDeleteBackupOpen] = useState(false);
+
+  // Dialog states for policies
+  const [selectedPolicy, setSelectedPolicy] = useState<BackupPolicy | null>(null);
+  const [viewPolicyDetailsOpen, setViewPolicyDetailsOpen] = useState(false);
+  const [editPolicyOpen, setEditPolicyOpen] = useState(false);
+  const [deletePolicyOpen, setDeletePolicyOpen] = useState(false);
 
   const backups = mockBackups.filter((b) => b.projectId === currentProject?.id);
   const policies = mockBackupPolicies.filter((p) => p.projectId === currentProject?.id);
@@ -425,25 +451,56 @@ export default function BackupsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setSelectedBackup(backup);
+                                  setViewDetailsOpen(true);
+                                }}
+                              >
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem disabled={backup.status !== "completed"}>
+                              <DropdownMenuItem
+                                disabled={backup.status !== "completed"}
+                                onSelect={() => {
+                                  setSelectedBackup(backup);
+                                  setRestoreDialogOpen(true);
+                                }}
+                              >
                                 <RotateCcw className="mr-2 h-4 w-4" />
                                 Restore
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Download started",
+                                    description: `Downloading backup ${backup.name}...`,
+                                  });
+                                }}
+                              >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Backup cloned",
+                                    description: `A copy of ${backup.name} has been created.`,
+                                  });
+                                }}
+                              >
                                 <Copy className="mr-2 h-4 w-4" />
                                 Clone Backup
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onSelect={() => {
+                                  setSelectedBackup(backup);
+                                  setDeleteBackupOpen(true);
+                                }}
+                              >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete Backup
                               </DropdownMenuItem>
@@ -499,32 +556,69 @@ export default function BackupsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setSelectedPolicy(policy);
+                          setViewPolicyDetailsOpen(true);
+                        }}
+                      >
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setSelectedPolicy(policy);
+                          setEditPolicyOpen(true);
+                        }}
+                      >
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Policy
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          toast({
+                            title: "Backup started",
+                            description: `Running backup policy "${policy.name}" now...`,
+                          });
+                        }}
+                      >
                         <Play className="mr-2 h-4 w-4" />
                         Run Now
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {policy.status === "active" ? (
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            toast({
+                              title: "Policy paused",
+                              description: `"${policy.name}" has been paused.`,
+                            });
+                          }}
+                        >
                           <Pause className="mr-2 h-4 w-4" />
                           Pause Policy
                         </DropdownMenuItem>
                       ) : (
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            toast({
+                              title: "Policy resumed",
+                              description: `"${policy.name}" has been resumed.`,
+                            });
+                          }}
+                        >
                           <Play className="mr-2 h-4 w-4" />
                           Resume Policy
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onSelect={() => {
+                          setSelectedPolicy(policy);
+                          setDeletePolicyOpen(true);
+                        }}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Policy
                       </DropdownMenuItem>
@@ -708,6 +802,276 @@ export default function BackupsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Backup Details Dialog */}
+      <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Backup Details</DialogTitle>
+            <DialogDescription>
+              Details for {selectedBackup?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Source</Label>
+                <p className="font-medium">{selectedBackup?.sourceName}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Type</Label>
+                <p className="font-medium capitalize">{selectedBackup?.sourceType}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Size</Label>
+                <p className="font-medium">{selectedBackup?.size} GB</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Status</Label>
+                <Badge variant={selectedBackup?.status === "completed" ? "default" : "secondary"}>
+                  {selectedBackup?.status}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Region</Label>
+                <p className="font-medium">{selectedBackup?.region}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Created</Label>
+                <p className="font-medium">
+                  {selectedBackup?.createdAt && formatRelativeTime(selectedBackup.createdAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button
+              disabled={selectedBackup?.status !== "completed"}
+              onClick={() => {
+                setViewDetailsOpen(false);
+                setRestoreDialogOpen(true);
+              }}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restore Dialog */}
+      <Dialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Restore Backup</DialogTitle>
+            <DialogDescription>
+              Restore {selectedBackup?.name} to a new resource
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="restore-name">New Resource Name</Label>
+              <Input
+                id="restore-name"
+                defaultValue={`${selectedBackup?.sourceName}-restored`}
+              />
+            </div>
+            <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-600">Restore Notice</p>
+                  <p className="text-muted-foreground">
+                    This will create a new {selectedBackup?.sourceType} with the data from this backup.
+                    The restore process may take several minutes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestoreDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setRestoreDialogOpen(false);
+                toast({
+                  title: "Restore started",
+                  description: `Restoring ${selectedBackup?.name}. This may take a few minutes.`,
+                });
+              }}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Start Restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Backup Confirmation */}
+      <AlertDialog open={deleteBackupOpen} onOpenChange={setDeleteBackupOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Backup</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedBackup?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Backup deleted",
+                  description: `${selectedBackup?.name} has been deleted.`,
+                });
+                setSelectedBackup(null);
+              }}
+            >
+              Delete Backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View Policy Details Dialog */}
+      <Dialog open={viewPolicyDetailsOpen} onOpenChange={setViewPolicyDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Policy Details</DialogTitle>
+            <DialogDescription>
+              Details for {selectedPolicy?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Schedule</Label>
+              <p className="font-medium">{selectedPolicy?.scheduleDescription}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1 text-center p-3 border rounded">
+                <p className="text-2xl font-bold">{selectedPolicy?.retention.daily}</p>
+                <p className="text-sm text-muted-foreground">Daily</p>
+              </div>
+              <div className="space-y-1 text-center p-3 border rounded">
+                <p className="text-2xl font-bold">{selectedPolicy?.retention.weekly}</p>
+                <p className="text-sm text-muted-foreground">Weekly</p>
+              </div>
+              <div className="space-y-1 text-center p-3 border rounded">
+                <p className="text-2xl font-bold">{selectedPolicy?.retention.monthly}</p>
+                <p className="text-sm text-muted-foreground">Monthly</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Last Run</Label>
+                <p className="font-medium">
+                  {selectedPolicy?.lastRun ? formatRelativeTime(selectedPolicy.lastRun) : "Never"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Next Run</Label>
+                <p className="font-medium">
+                  {selectedPolicy?.status === "active" ? formatFutureTime(selectedPolicy.nextRun) : "Paused"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewPolicyDetailsOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setViewPolicyDetailsOpen(false);
+                setEditPolicyOpen(true);
+              }}
+            >
+              Edit Policy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Policy Dialog */}
+      <Dialog open={editPolicyOpen} onOpenChange={setEditPolicyOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Policy</DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedPolicy?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-policy-name">Policy Name</Label>
+              <Input id="edit-policy-name" defaultValue={selectedPolicy?.name} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-daily">Daily Retention</Label>
+                <Input id="edit-daily" type="number" defaultValue={selectedPolicy?.retention.daily} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-weekly">Weekly Retention</Label>
+                <Input id="edit-weekly" type="number" defaultValue={selectedPolicy?.retention.weekly} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-monthly">Monthly Retention</Label>
+                <Input id="edit-monthly" type="number" defaultValue={selectedPolicy?.retention.monthly} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPolicyOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setEditPolicyOpen(false);
+                toast({
+                  title: "Policy updated",
+                  description: `${selectedPolicy?.name} has been updated.`,
+                });
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Policy Confirmation */}
+      <AlertDialog open={deletePolicyOpen} onOpenChange={setDeletePolicyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Policy</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedPolicy?.name}"? Scheduled backups will stop running.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Policy deleted",
+                  description: `${selectedPolicy?.name} has been deleted.`,
+                });
+                setSelectedPolicy(null);
+              }}
+            >
+              Delete Policy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

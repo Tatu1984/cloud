@@ -62,6 +62,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
@@ -70,6 +80,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast";
 
 // DNS Zone type
 interface DNSZone {
@@ -214,12 +225,22 @@ const statusBadgeVariants: Record<DNSZone["status"], "default" | "secondary" | "
 const recordTypes = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA"];
 
 export default function DNSPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [selectedZone, setSelectedZone] = useState<DNSZone | null>(null);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("all");
   const [createZoneOpen, setCreateZoneOpen] = useState(false);
   const [createRecordOpen, setCreateRecordOpen] = useState(false);
   const [newRecordType, setNewRecordType] = useState<string>("A");
+
+  // Dialog states for zone actions
+  const [editZoneOpen, setEditZoneOpen] = useState(false);
+  const [deleteZoneOpen, setDeleteZoneOpen] = useState(false);
+
+  // Dialog states for record actions
+  const [editRecordOpen, setEditRecordOpen] = useState(false);
+  const [deleteRecordOpen, setDeleteRecordOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<DNSRecord | null>(null);
 
   const filteredZones = mockDNSZones.filter((zone) =>
     zone.name.toLowerCase().includes(search.toLowerCase())
@@ -555,20 +576,37 @@ export default function DNSPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          toast({
+                            title: "Checking DNS propagation",
+                            description: `Verifying propagation status for ${selectedZone?.name}...`,
+                          });
+                        }}
+                      >
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Check Propagation
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          toast({
+                            title: "Zone file exported",
+                            description: `${selectedZone?.name} zone file has been downloaded.`,
+                          });
+                        }}
+                      >
                         <Copy className="mr-2 h-4 w-4" />
                         Export Zone File
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setEditZoneOpen(true)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Zone
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onSelect={() => setDeleteZoneOpen(true)}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Zone
                       </DropdownMenuItem>
@@ -652,16 +690,35 @@ export default function DNSPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setSelectedRecord(record);
+                                      setEditRecordOpen(true);
+                                    }}
+                                  >
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      navigator.clipboard.writeText(record.value);
+                                      toast({
+                                        title: "Value copied",
+                                        description: "Record value copied to clipboard.",
+                                      });
+                                    }}
+                                  >
                                     <Copy className="mr-2 h-4 w-4" />
                                     Copy Value
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive">
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onSelect={() => {
+                                      setSelectedRecord(record);
+                                      setDeleteRecordOpen(true);
+                                    }}
+                                  >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete
                                   </DropdownMenuItem>
@@ -751,6 +808,183 @@ export default function DNSPage() {
           )}
         </Card>
       </div>
+
+      {/* Edit Zone Dialog */}
+      <Dialog open={editZoneOpen} onOpenChange={setEditZoneOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit DNS Zone</DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedZone?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-zone-name">Domain Name</Label>
+              <Input
+                id="edit-zone-name"
+                defaultValue={selectedZone?.name}
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">
+                Domain name cannot be changed after creation
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-zone-type">Zone Type</Label>
+              <Select defaultValue={selectedZone?.type}>
+                <SelectTrigger id="edit-zone-type">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public (Internet-facing)</SelectItem>
+                  <SelectItem value="private">Private (Internal only)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditZoneOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setEditZoneOpen(false);
+                toast({
+                  title: "Zone updated",
+                  description: `${selectedZone?.name} has been updated successfully.`,
+                });
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Zone Confirmation */}
+      <AlertDialog open={deleteZoneOpen} onOpenChange={setDeleteZoneOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete DNS Zone</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the zone "{selectedZone?.name}"?
+              This will remove all {selectedZone?.recordCount} DNS records and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Zone deleted",
+                  description: `${selectedZone?.name} has been deleted.`,
+                });
+                setSelectedZone(null);
+              }}
+            >
+              Delete Zone
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Record Dialog */}
+      <Dialog open={editRecordOpen} onOpenChange={setEditRecordOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit DNS Record</DialogTitle>
+            <DialogDescription>
+              Update the {selectedRecord?.type} record
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-record-type">Type</Label>
+                <Input
+                  id="edit-record-type"
+                  defaultValue={selectedRecord?.type}
+                  disabled
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-record-name">Name</Label>
+                <Input
+                  id="edit-record-name"
+                  defaultValue={selectedRecord?.name}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-record-value">Value</Label>
+              <Input
+                id="edit-record-value"
+                defaultValue={selectedRecord?.value}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-record-ttl">TTL</Label>
+              <Select defaultValue={selectedRecord?.ttl?.toString()}>
+                <SelectTrigger id="edit-record-ttl">
+                  <SelectValue placeholder="Select TTL" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="60">1 minute (60)</SelectItem>
+                  <SelectItem value="300">5 minutes (300)</SelectItem>
+                  <SelectItem value="3600">1 hour (3600)</SelectItem>
+                  <SelectItem value="86400">1 day (86400)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRecordOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setEditRecordOpen(false);
+                toast({
+                  title: "Record updated",
+                  description: "DNS record has been updated successfully.",
+                });
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Record Confirmation */}
+      <AlertDialog open={deleteRecordOpen} onOpenChange={setDeleteRecordOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete DNS Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this {selectedRecord?.type} record for "
+              {selectedRecord?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Record deleted",
+                  description: "DNS record has been deleted.",
+                });
+                setSelectedRecord(null);
+              }}
+            >
+              Delete Record
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

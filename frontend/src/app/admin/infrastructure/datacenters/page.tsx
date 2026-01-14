@@ -29,7 +29,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { mockDatacenters, Datacenter } from "@/stores/mock-data";
+import { mockDatacenters } from "@/stores/mock-data";
+import { Datacenter } from "@/types";
 import {
   ChartConfig,
   ChartContainer,

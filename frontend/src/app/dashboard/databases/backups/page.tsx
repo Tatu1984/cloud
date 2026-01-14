@@ -81,6 +81,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAuthStore } from "@/stores/auth-store";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data for backups
 const mockBackups = [
@@ -278,6 +279,7 @@ const mockDatabases = [
 ];
 
 export default function BackupsPage() {
+  const { toast } = useToast();
   const { currentProject } = useAuthStore();
   const [activeTab, setActiveTab] = useState("backups");
   const [createBackupDialogOpen, setCreateBackupDialogOpen] = useState(false);
@@ -285,6 +287,12 @@ export default function BackupsPage() {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [pitrDialogOpen, setPitrDialogOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<typeof mockBackups[0] | null>(null);
+
+  // Additional dialog states
+  const [deleteBackupOpen, setDeleteBackupOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<typeof mockSchedules[0] | null>(null);
+  const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+  const [deleteScheduleOpen, setDeleteScheduleOpen] = useState(false);
 
   // Form state
   const [selectedDatabase, setSelectedDatabase] = useState("");
@@ -638,17 +646,31 @@ export default function BackupsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               disabled={backup.status !== "completed"}
-                              onClick={() => handleRestore(backup)}
+                              onSelect={() => handleRestore(backup)}
                             >
                               <RotateCcw className="mr-2 h-4 w-4" />
                               Restore
                             </DropdownMenuItem>
-                            <DropdownMenuItem disabled={backup.status !== "completed"}>
+                            <DropdownMenuItem
+                              disabled={backup.status !== "completed"}
+                              onSelect={() => {
+                                toast({
+                                  title: "Download started",
+                                  description: `Downloading backup for ${backup.databaseName}...`,
+                                });
+                              }}
+                            >
                               <Download className="mr-2 h-4 w-4" />
                               Download
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onSelect={() => {
+                                setSelectedBackup(backup);
+                                setDeleteBackupOpen(true);
+                              }}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
@@ -821,27 +843,59 @@ export default function BackupsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                toast({
+                                  title: "Backup started",
+                                  description: `Running backup for ${schedule.databaseName} now...`,
+                                });
+                              }}
+                            >
                               <Play className="mr-2 h-4 w-4" />
                               Run Now
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setSelectedSchedule(schedule);
+                                setEditScheduleOpen(true);
+                              }}
+                            >
                               <Settings className="mr-2 h-4 w-4" />
                               Edit Schedule
                             </DropdownMenuItem>
                             {schedule.enabled ? (
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Schedule paused",
+                                    description: `Backup schedule for ${schedule.databaseName} has been paused.`,
+                                  });
+                                }}
+                              >
                                 <Pause className="mr-2 h-4 w-4" />
                                 Pause Schedule
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Schedule resumed",
+                                    description: `Backup schedule for ${schedule.databaseName} has been resumed.`,
+                                  });
+                                }}
+                              >
                                 <Play className="mr-2 h-4 w-4" />
                                 Resume Schedule
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onSelect={() => {
+                                setSelectedSchedule(schedule);
+                                setDeleteScheduleOpen(true);
+                              }}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete Schedule
                             </DropdownMenuItem>
@@ -1000,13 +1054,141 @@ export default function BackupsPage() {
             <Button variant="outline" onClick={() => setRestoreDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => setRestoreDialogOpen(false)}>
+            <Button onClick={() => {
+              setRestoreDialogOpen(false);
+              toast({
+                title: "Restore started",
+                description: `Restoring backup for ${selectedBackup?.databaseName}. This may take a few minutes.`,
+              });
+            }}>
               <RotateCcw className="mr-2 h-4 w-4" />
               Start Restore
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Backup Confirmation */}
+      <AlertDialog open={deleteBackupOpen} onOpenChange={setDeleteBackupOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Backup</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this backup for "{selectedBackup?.databaseName}"?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Backup deleted",
+                  description: `Backup for ${selectedBackup?.databaseName} has been deleted.`,
+                });
+                setSelectedBackup(null);
+              }}
+            >
+              Delete Backup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Schedule Dialog */}
+      <Dialog open={editScheduleOpen} onOpenChange={setEditScheduleOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Backup Schedule</DialogTitle>
+            <DialogDescription>
+              Update backup schedule for {selectedSchedule?.databaseName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-schedule-frequency">Frequency</Label>
+              <Select defaultValue={selectedSchedule?.frequency}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedSchedule?.frequency !== "hourly" && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-schedule-time">Time (UTC)</Label>
+                <Input
+                  id="edit-schedule-time"
+                  type="time"
+                  defaultValue={selectedSchedule?.time || "03:00"}
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label htmlFor="edit-schedule-retention">Retention Period</Label>
+              <Select defaultValue={selectedSchedule?.retentionDays?.toString()}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select retention period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="60">60 days</SelectItem>
+                  <SelectItem value="90">90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditScheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditScheduleOpen(false);
+              toast({
+                title: "Schedule updated",
+                description: `Backup schedule for ${selectedSchedule?.databaseName} has been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Schedule Confirmation */}
+      <AlertDialog open={deleteScheduleOpen} onOpenChange={setDeleteScheduleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Backup Schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the backup schedule for "{selectedSchedule?.databaseName}"?
+              Automated backups will stop running for this database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Schedule deleted",
+                  description: `Backup schedule for ${selectedSchedule?.databaseName} has been deleted.`,
+                });
+                setSelectedSchedule(null);
+              }}
+            >
+              Delete Schedule
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

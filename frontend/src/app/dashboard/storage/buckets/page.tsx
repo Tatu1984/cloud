@@ -21,6 +21,7 @@ import {
   Clock,
   Eye,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -57,10 +58,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -95,6 +107,13 @@ export default function BucketsPage() {
   const [search, setSearch] = useState("");
   const [storageClassFilter, setStorageClassFilter] = useState<string>("all");
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bucketToDelete, setBucketToDelete] = useState<Bucket | null>(null);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [lifecycleDialogOpen, setLifecycleDialogOpen] = useState(false);
+  const [accessPoliciesDialogOpen, setAccessPoliciesDialogOpen] = useState(false);
+  const [bucketForAction, setBucketForAction] = useState<Bucket | null>(null);
+  const { toast } = useToast();
 
   const buckets = mockBuckets.filter((b) => b.projectId === currentProject?.id);
 
@@ -126,6 +145,64 @@ export default function BucketsPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to Clipboard",
+      description: "Endpoint URL has been copied.",
+    });
+  };
+
+  const handleBrowseObjects = (bucket: Bucket) => {
+    toast({
+      title: "Opening Browser",
+      description: `Browsing objects in ${bucket.name}...`,
+    });
+  };
+
+  const handleViewMetrics = (bucket: Bucket) => {
+    toast({
+      title: "Loading Metrics",
+      description: `Loading metrics for ${bucket.name}...`,
+    });
+  };
+
+  const handleOpenSettings = (bucket: Bucket) => {
+    setBucketForAction(bucket);
+    setSettingsDialogOpen(true);
+  };
+
+  const handleCopyEndpoint = (bucket: Bucket) => {
+    const endpoint = `https://${bucket.name}.s3.${bucket.region}.cloudplatform.io`;
+    navigator.clipboard.writeText(endpoint);
+    toast({
+      title: "Endpoint Copied",
+      description: `${endpoint} has been copied to clipboard.`,
+    });
+  };
+
+  const handleLifecycleRules = (bucket: Bucket) => {
+    setBucketForAction(bucket);
+    setLifecycleDialogOpen(true);
+  };
+
+  const handleAccessPolicies = (bucket: Bucket) => {
+    setBucketForAction(bucket);
+    setAccessPoliciesDialogOpen(true);
+  };
+
+  const openDeleteDialog = (bucket: Bucket) => {
+    setBucketToDelete(bucket);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteBucket = () => {
+    if (!bucketToDelete) return;
+    toast({
+      title: "Bucket Deleted",
+      description: `${bucketToDelete.name} has been deleted successfully.`,
+      variant: "destructive",
+    });
+    setDeleteDialogOpen(false);
+    setBucketToDelete(null);
   };
 
   return (
@@ -513,33 +590,36 @@ export default function BucketsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleBrowseObjects(bucket)}>
                           <Eye className="mr-2 h-4 w-4" />
                           Browse Objects
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleViewMetrics(bucket)}>
                           <BarChart3 className="mr-2 h-4 w-4" />
                           View Metrics
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleOpenSettings(bucket)}>
                           <Settings className="mr-2 h-4 w-4" />
                           Bucket Settings
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleCopyEndpoint(bucket)}>
                           <Copy className="mr-2 h-4 w-4" />
                           Copy Endpoint
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleLifecycleRules(bucket)}>
                           <Clock className="mr-2 h-4 w-4" />
                           Lifecycle Rules
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleAccessPolicies(bucket)}>
                           <Shield className="mr-2 h-4 w-4" />
                           Access Policies
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => openDeleteDialog(bucket)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete Bucket
                         </DropdownMenuItem>
@@ -568,6 +648,171 @@ export default function BucketsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Bucket Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bucket Settings</DialogTitle>
+            <DialogDescription>
+              Configure settings for {bucketForAction?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Versioning</Label>
+                <p className="text-sm text-muted-foreground">
+                  Keep multiple versions of objects
+                </p>
+              </div>
+              <Switch checked={bucketForAction?.versioning} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Encryption</Label>
+                <p className="text-sm text-muted-foreground">
+                  Server-side encryption at rest
+                </p>
+              </div>
+              <Switch checked={bucketForAction?.encryption} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Public Access</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow public read access
+                </p>
+              </div>
+              <Switch checked={bucketForAction?.publicAccess} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Settings Updated",
+                description: `${bucketForAction?.name} settings have been updated.`,
+              });
+              setSettingsDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lifecycle Rules Dialog */}
+      <Dialog open={lifecycleDialogOpen} onOpenChange={setLifecycleDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Lifecycle Rules</DialogTitle>
+            <DialogDescription>
+              Manage lifecycle rules for {bucketForAction?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {bucketForAction?.lifecycle?.enabled ? (
+              <div className="space-y-3">
+                {bucketForAction.lifecycle.rules.map((rule) => (
+                  <div key={rule.id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{rule.name}</span>
+                      <Badge variant={rule.enabled ? "default" : "secondary"}>
+                        {rule.enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Clock className="h-8 w-8 mx-auto mb-2" />
+                <p>No lifecycle rules configured</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLifecycleDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Add Lifecycle Rule",
+                description: "Opening lifecycle rule editor...",
+              });
+            }}>
+              Add Rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Policies Dialog */}
+      <Dialog open={accessPoliciesDialogOpen} onOpenChange={setAccessPoliciesDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Access Policies</DialogTitle>
+            <DialogDescription>
+              Manage access policies for {bucketForAction?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Default Policy</p>
+                    <p className="text-sm text-muted-foreground">
+                      {bucketForAction?.publicAccess ? "Public read access enabled" : "Private access only"}
+                    </p>
+                  </div>
+                  <Badge variant={bucketForAction?.publicAccess ? "destructive" : "default"}>
+                    {bucketForAction?.publicAccess ? "Public" : "Private"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessPoliciesDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Edit Policy",
+                description: "Opening policy editor...",
+              });
+            }}>
+              Edit Policy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Bucket</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {bucketToDelete?.name}? This action cannot be undone.
+              All objects in the bucket will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBucket}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Bucket
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

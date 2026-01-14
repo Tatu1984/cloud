@@ -13,6 +13,7 @@ import {
   Play,
   Settings,
   Activity,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -57,6 +68,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 // Mock replication jobs
@@ -175,6 +187,26 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+interface ReplicationJob {
+  id: string;
+  name: string;
+  sourceCluster: string;
+  sourcePool: string;
+  targetCluster: string;
+  targetPool: string;
+  status: string;
+  mode: string;
+  schedule: string | null;
+  scheduleDescription: string;
+  lastSync: string;
+  nextSync: string | null;
+  lag: number;
+  objectsSynced: number;
+  bytesTransferred: number;
+  health: string;
+  healthDetail?: string;
+}
+
 function formatLag(seconds: number): string {
   if (seconds === 0) return "-";
   if (seconds < 60) return `${seconds}s`;
@@ -183,11 +215,70 @@ function formatLag(seconds: number): string {
 }
 
 export default function ReplicationPage() {
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<ReplicationJob | null>(null);
 
   const activeJobs = mockReplicationJobs.filter((j) => j.status === "active").length;
   const healthyJobs = mockReplicationJobs.filter((j) => j.health === "healthy").length;
   const totalTransferred = mockReplicationJobs.reduce((sum, j) => sum + j.bytesTransferred, 0);
+
+  const handleSyncNow = (job: ReplicationJob) => {
+    toast({
+      title: "Sync Started",
+      description: `Manual sync initiated for ${job.name}.`,
+    });
+  };
+
+  const handlePause = (job: ReplicationJob) => {
+    toast({
+      title: "Replication Paused",
+      description: `${job.name} has been paused.`,
+    });
+  };
+
+  const handleResume = (job: ReplicationJob) => {
+    toast({
+      title: "Replication Resumed",
+      description: `${job.name} has been resumed.`,
+    });
+  };
+
+  const handleConfigure = (job: ReplicationJob) => {
+    setSelectedJob(job);
+    setConfigDialogOpen(true);
+  };
+
+  const handleViewLogs = (job: ReplicationJob) => {
+    setSelectedJob(job);
+    setLogsDialogOpen(true);
+  };
+
+  const handleDelete = (job: ReplicationJob) => {
+    setSelectedJob(job);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    toast({
+      title: "Replication Job Deleted",
+      description: `${selectedJob?.name} has been deleted.`,
+    });
+    setDeleteDialogOpen(false);
+    setSelectedJob(null);
+  };
+
+  const saveConfig = () => {
+    toast({
+      title: "Configuration Saved",
+      description: `${selectedJob?.name} configuration has been updated.`,
+    });
+    setConfigDialogOpen(false);
+    setSelectedJob(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -421,28 +512,31 @@ export default function ReplicationPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleSyncNow(job)}>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Sync Now
                           </DropdownMenuItem>
                           {job.status === "active" ? (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handlePause(job)}>
                               <Pause className="mr-2 h-4 w-4" />
                               Pause
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleResume(job)}>
                               <Play className="mr-2 h-4 w-4" />
                               Resume
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleConfigure(job)}>
                             <Settings className="mr-2 h-4 w-4" />
                             Configure
                           </DropdownMenuItem>
-                          <DropdownMenuItem>View Logs</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleViewLogs(job)}>
+                            View Logs
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(job)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
                             Delete Job
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -455,6 +549,93 @@ export default function ReplicationPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Logs Dialog */}
+      <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Replication Logs - {selectedJob?.name}</DialogTitle>
+            <DialogDescription>
+              Recent sync activity for this replication job
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted p-4 rounded-md font-mono text-sm h-64 overflow-y-auto">
+            <p className="text-muted-foreground">[2024-03-15 10:30:00] INFO: Sync completed successfully</p>
+            <p className="text-muted-foreground">[2024-03-15 10:29:55] INFO: Transferred 1,250 objects (2.4 GB)</p>
+            <p className="text-muted-foreground">[2024-03-15 10:28:00] INFO: Starting incremental sync</p>
+            <p className="text-muted-foreground">[2024-03-15 10:15:00] INFO: Sync completed successfully</p>
+            <p className="text-yellow-500">[2024-03-15 10:14:30] WARN: Slow network detected, retrying transfer</p>
+            <p className="text-muted-foreground">[2024-03-15 10:13:00] INFO: Starting incremental sync</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Configure Dialog */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Configure Replication Job</DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedJob?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Job Name</Label>
+              <Input defaultValue={selectedJob?.name} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Mode</Label>
+                <Select defaultValue={selectedJob?.mode}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="async">Asynchronous</SelectItem>
+                    <SelectItem value="sync">Synchronous</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Schedule (Cron)</Label>
+                <Input defaultValue={selectedJob?.schedule || ""} placeholder="*/15 * * * *" />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Bandwidth Limit (MB/s)</Label>
+              <Input type="number" placeholder="Unlimited" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveConfig}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Replication Job</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedJob?.name}"? This will stop all replication between the source and target clusters. Existing replicated data will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete Job</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

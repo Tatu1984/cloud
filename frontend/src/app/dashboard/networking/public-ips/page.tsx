@@ -62,6 +62,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 // Public IP type
 interface PublicIP {
@@ -239,6 +250,7 @@ const statusBadgeVariants: Record<PublicIP["status"], "default" | "secondary" | 
 };
 
 export default function PublicIpsPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [versionFilter, setVersionFilter] = useState<string>("all");
@@ -246,6 +258,11 @@ export default function PublicIpsPage() {
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [associateDialogOpen, setAssociateDialogOpen] = useState(false);
   const [selectedIP, setSelectedIP] = useState<PublicIP | null>(null);
+
+  // Additional dialog states
+  const [editRdnsOpen, setEditRdnsOpen] = useState(false);
+  const [editTagsOpen, setEditTagsOpen] = useState(false);
+  const [releaseIpOpen, setReleaseIpOpen] = useState(false);
 
   const filteredIPs = mockPublicIPs.filter((ip) => {
     const matchesSearch =
@@ -569,7 +586,7 @@ export default function PublicIpsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => {
+                          onSelect={() => {
                             setSelectedIP(ip);
                             setAssociateDialogOpen(true);
                           }}
@@ -586,20 +603,44 @@ export default function PublicIpsPage() {
                             </>
                           )}
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            navigator.clipboard.writeText(ip.address);
+                            toast({
+                              title: "IP copied",
+                              description: `${ip.address} copied to clipboard.`,
+                            });
+                          }}
+                        >
                           <Copy className="mr-2 h-4 w-4" />
                           Copy IP
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedIP(ip);
+                            setEditRdnsOpen(true);
+                          }}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Reverse DNS
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedIP(ip);
+                            setEditTagsOpen(true);
+                          }}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Tags
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => {
+                            setSelectedIP(ip);
+                            setReleaseIpOpen(true);
+                          }}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Release IP
                         </DropdownMenuItem>
@@ -695,13 +736,136 @@ export default function PublicIpsPage() {
             </Button>
             <Button
               variant={selectedIP?.associatedResource ? "destructive" : "default"}
-              onClick={() => setAssociateDialogOpen(false)}
+              onClick={() => {
+                setAssociateDialogOpen(false);
+                toast({
+                  title: selectedIP?.associatedResource ? "IP disassociated" : "IP associated",
+                  description: selectedIP?.associatedResource
+                    ? `${selectedIP.address} has been disassociated.`
+                    : `${selectedIP?.address} has been associated.`,
+                });
+              }}
             >
               {selectedIP?.associatedResource ? "Disassociate" : "Associate"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Reverse DNS Dialog */}
+      <Dialog open={editRdnsOpen} onOpenChange={setEditRdnsOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Edit Reverse DNS</DialogTitle>
+            <DialogDescription>
+              Update the reverse DNS record for {selectedIP?.address}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="rdns">Reverse DNS Hostname</Label>
+              <Input
+                id="rdns"
+                defaultValue={selectedIP?.reverseDns || ""}
+                placeholder="e.g., server.example.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                The hostname must point to this IP address for verification.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRdnsOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditRdnsOpen(false);
+              toast({
+                title: "Reverse DNS updated",
+                description: `Reverse DNS for ${selectedIP?.address} has been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Tags Dialog */}
+      <Dialog open={editTagsOpen} onOpenChange={setEditTagsOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Edit Tags</DialogTitle>
+            <DialogDescription>
+              Manage tags for {selectedIP?.address}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tags">Tags (comma-separated)</Label>
+              <Input
+                id="tags"
+                defaultValue={selectedIP?.tags.join(", ") || ""}
+                placeholder="e.g., production, web, frontend"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedIP?.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTagsOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditTagsOpen(false);
+              toast({
+                title: "Tags updated",
+                description: `Tags for ${selectedIP?.address} have been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Release IP Confirmation */}
+      <AlertDialog open={releaseIpOpen} onOpenChange={setReleaseIpOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Release Public IP</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to release {selectedIP?.address}?
+              {selectedIP?.associatedResource && (
+                <span className="block mt-2 text-yellow-600">
+                  Warning: This IP is currently associated with {selectedIP.associatedResource.name}.
+                  The resource will lose its public IP address.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "IP released",
+                  description: `${selectedIP?.address} has been released.`,
+                });
+                setSelectedIP(null);
+              }}
+            >
+              Release IP
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

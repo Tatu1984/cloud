@@ -51,6 +51,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -61,6 +71,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
 
 // Mock maintenance windows
@@ -159,8 +170,29 @@ const typeConfig = {
   emergency: "Emergency",
 };
 
+interface MaintenanceWindow {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  status: string;
+  priority: string;
+  startTime: string;
+  endTime: string;
+  affectedServices: string[];
+  notifyTenants: boolean;
+  createdBy: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export default function MaintenancePage() {
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedWindow, setSelectedWindow] = useState<MaintenanceWindow | null>(null);
 
   const scheduledCount = mockMaintenanceWindows.filter((m) => m.status === "scheduled").length;
   const inProgressCount = mockMaintenanceWindows.filter((m) => m.status === "in_progress").length;
@@ -172,6 +204,53 @@ export default function MaintenancePage() {
   const pastWindows = mockMaintenanceWindows.filter(
     (m) => m.status === "completed" || m.status === "cancelled"
   );
+
+  const handleViewDetails = (window: MaintenanceWindow) => {
+    setSelectedWindow(window);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleEdit = (window: MaintenanceWindow) => {
+    setSelectedWindow(window);
+    setEditDialogOpen(true);
+  };
+
+  const handleStartNow = (window: MaintenanceWindow) => {
+    toast({
+      title: "Maintenance Started",
+      description: `${window.title} has been started.`,
+    });
+  };
+
+  const handleMarkComplete = (window: MaintenanceWindow) => {
+    toast({
+      title: "Maintenance Completed",
+      description: `${window.title} has been marked as complete.`,
+    });
+  };
+
+  const handleCancel = (window: MaintenanceWindow) => {
+    setSelectedWindow(window);
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancel = () => {
+    toast({
+      title: "Maintenance Cancelled",
+      description: `${selectedWindow?.title} has been cancelled.`,
+    });
+    setCancelDialogOpen(false);
+    setSelectedWindow(null);
+  };
+
+  const saveEdit = () => {
+    toast({
+      title: "Maintenance Updated",
+      description: `${selectedWindow?.title} has been updated.`,
+    });
+    setEditDialogOpen(false);
+    setSelectedWindow(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -408,25 +487,27 @@ export default function MaintenancePage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleViewDetails(window)}>
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEdit(window)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
                               {window.status === "scheduled" && (
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleStartNow(window)}>
                                   <Play className="mr-2 h-4 w-4" />
                                   Start Now
                                 </DropdownMenuItem>
                               )}
                               {window.status === "in_progress" && (
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleMarkComplete(window)}>
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Mark Complete
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleCancel(window)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Cancel
                               </DropdownMenuItem>
@@ -507,6 +588,113 @@ export default function MaintenancePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedWindow?.title}</DialogTitle>
+            <DialogDescription>{selectedWindow?.description}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground">Type</Label>
+                <p className="font-medium">{selectedWindow?.type}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Priority</Label>
+                <p className="font-medium">{selectedWindow?.priority}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground">Start Time</Label>
+                <p className="font-medium">
+                  {selectedWindow?.startTime && format(new Date(selectedWindow.startTime), "MMM d, yyyy HH:mm")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">End Time</Label>
+                <p className="font-medium">
+                  {selectedWindow?.endTime && format(new Date(selectedWindow.endTime), "MMM d, yyyy HH:mm")}
+                </p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Affected Services</Label>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {selectedWindow?.affectedServices.map((service) => (
+                  <Badge key={service} variant="secondary">{service}</Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Created By</Label>
+              <p className="font-medium">{selectedWindow?.createdBy}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Maintenance Window</DialogTitle>
+            <DialogDescription>
+              Update maintenance window details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Title</Label>
+              <Input defaultValue={selectedWindow?.title} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Description</Label>
+              <Textarea defaultValue={selectedWindow?.description} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Start Time</Label>
+                <Input type="datetime-local" />
+              </div>
+              <div className="grid gap-2">
+                <Label>End Time</Label>
+                <Input type="datetime-local" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Maintenance</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel "{selectedWindow?.title}"? This action cannot be undone and any notifications already sent to tenants will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Scheduled</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel}>Cancel Maintenance</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

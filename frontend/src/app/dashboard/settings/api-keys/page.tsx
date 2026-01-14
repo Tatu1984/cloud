@@ -72,6 +72,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface APIKey {
   id: string;
@@ -199,6 +200,7 @@ function maskApiKey(prefix: string): string {
 }
 
 export default function ApiKeysPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -248,6 +250,35 @@ export default function ApiKeysPage() {
         ? prev.filter((p) => p !== permissionId)
         : [...prev, permissionId]
     );
+  };
+
+  const handleViewDetails = (key: APIKey) => {
+    toast({
+      title: "API Key Details",
+      description: `Opening details for ${key.name}`,
+    });
+  };
+
+  const handleViewUsage = (key: APIKey) => {
+    toast({
+      title: "API Key Usage",
+      description: `Opening usage analytics for ${key.name}`,
+    });
+  };
+
+  const handleRegenerateKey = (key: APIKey) => {
+    toast({
+      title: "Regenerate Key",
+      description: `A new key will be generated for ${key.name}. The old key will be invalidated.`,
+    });
+  };
+
+  const handleDeletePermanently = (key: APIKey) => {
+    toast({
+      title: "Delete Key",
+      description: `${key.name} will be permanently deleted`,
+      variant: "destructive",
+    });
   };
 
   const activeKeysCount = apiKeys.filter((k) => k.status === "active").length;
@@ -608,11 +639,11 @@ export default function ApiKeysPage() {
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Key Prefix
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleViewDetails(key)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleViewUsage(key)}>
                             <Activity className="mr-2 h-4 w-4" />
                             View Usage
                           </DropdownMenuItem>
@@ -631,7 +662,7 @@ export default function ApiKeysPage() {
                           {key.status === "expired" && (
                             <>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleRegenerateKey(key)}>
                                 <Key className="mr-2 h-4 w-4" />
                                 Regenerate Key
                               </DropdownMenuItem>
@@ -640,7 +671,7 @@ export default function ApiKeysPage() {
                           {key.status === "revoked" && (
                             <>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeletePermanently(key)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete Permanently
                               </DropdownMenuItem>

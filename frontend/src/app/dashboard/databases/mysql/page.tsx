@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/table";
 import { mockDatabases } from "@/stores/mock-data";
 import { useAuthStore } from "@/stores/auth-store";
+import { useToast } from "@/hooks/use-toast";
 
 // Extended mock data for MySQL databases
 const mockMySQLDatabases = [
@@ -181,6 +182,7 @@ const instanceSizes = [
 const mysqlVersions = ["8.0.35", "8.0.34", "5.7.44", "5.7.43"];
 
 export default function MySQLPage() {
+  const { toast } = useToast();
   const { currentProject } = useAuthStore();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
@@ -234,6 +236,56 @@ export default function MySQLPage() {
   const handleShowConnectionInfo = (db: typeof mockMySQLDatabases[0]) => {
     setSelectedDb(db);
     setConnectionDialogOpen(true);
+  };
+
+  const handleViewMetrics = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "View Metrics",
+      description: `Opening metrics for ${db.name}`,
+    });
+  };
+
+  const handleViewBackups = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "View Backups",
+      description: `Navigating to backups for ${db.name}`,
+    });
+  };
+
+  const handleConfiguration = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "Configuration",
+      description: `Opening configuration for ${db.name}`,
+    });
+  };
+
+  const handleStopDatabase = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "Stopping Database",
+      description: `${db.name} is being stopped`,
+    });
+  };
+
+  const handleStartDatabase = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "Starting Database",
+      description: `${db.name} is being started`,
+    });
+  };
+
+  const handleRestartDatabase = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "Restarting Database",
+      description: `${db.name} is being restarted`,
+    });
+  };
+
+  const handleDeleteDatabase = (db: typeof mockMySQLDatabases[0]) => {
+    toast({
+      title: "Delete Database",
+      description: `Confirm deletion of ${db.name}`,
+      variant: "destructive",
+    });
   };
 
   return (
@@ -424,36 +476,36 @@ export default function MySQLPage() {
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Connection Info
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleViewMetrics(db)}>
                         <Activity className="mr-2 h-4 w-4" />
                         View Metrics
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleViewBackups(db)}>
                         <Clock className="mr-2 h-4 w-4" />
                         View Backups
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleConfiguration(db)}>
                         <Settings className="mr-2 h-4 w-4" />
                         Configuration
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {db.status === "running" ? (
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleStopDatabase(db)}>
                           <Square className="mr-2 h-4 w-4" />
                           Stop Database
                         </DropdownMenuItem>
                       ) : (
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleStartDatabase(db)}>
                           <Play className="mr-2 h-4 w-4" />
                           Start Database
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleRestartDatabase(db)}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         Restart Database
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteDatabase(db)}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Database
                       </DropdownMenuItem>

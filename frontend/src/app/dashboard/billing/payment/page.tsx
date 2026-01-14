@@ -70,6 +70,7 @@ import {
   Receipt,
   History,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock payment methods
 const mockPaymentMethods = [
@@ -227,6 +228,7 @@ const getCardBgColor = (type: string) => {
 };
 
 export default function PaymentPage() {
+  const { toast } = useToast();
   const [paymentMethods, setPaymentMethods] = useState(mockPaymentMethods);
   const [billingAddress, setBillingAddress] = useState(mockBillingAddress);
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
@@ -278,6 +280,13 @@ export default function PaymentPage() {
   const handleSaveAddress = () => {
     setBillingAddress(editedAddress);
     setIsEditAddressOpen(false);
+  };
+
+  const handleEditCard = (cardId: string, brand: string) => {
+    toast({
+      title: "Edit Payment Method",
+      description: `Opening editor for ${brand} card`,
+    });
   };
 
   const totalCredits = mockTransactions
@@ -533,7 +542,7 @@ export default function PaymentPage() {
                             Set as Default
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleEditCard(method.id, method.brand)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>

@@ -47,11 +47,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Search } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 // Mock IAM policies
@@ -190,9 +201,154 @@ const mockServiceAccounts = [
   },
 ];
 
+interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  attachedCount: number;
+  statements: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  policies: string[];
+  members: number;
+}
+
+interface ServiceAccount {
+  id: string;
+  name: string;
+  description: string;
+  role: string;
+  lastUsed: string;
+  status: string;
+}
+
 export default function IAMPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Policy state
+  const [viewPolicyDialogOpen, setViewPolicyDialogOpen] = useState(false);
+  const [editPolicyDialogOpen, setEditPolicyDialogOpen] = useState(false);
+  const [deletePolicyDialogOpen, setDeletePolicyDialogOpen] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+
+  // Role state
+  const [viewRoleDialogOpen, setViewRoleDialogOpen] = useState(false);
+  const [editPoliciesDialogOpen, setEditPoliciesDialogOpen] = useState(false);
+  const [viewMembersDialogOpen, setViewMembersDialogOpen] = useState(false);
+  const [deleteRoleDialogOpen, setDeleteRoleDialogOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
+  // Service Account state
+  const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [deleteServiceAccountDialogOpen, setDeleteServiceAccountDialogOpen] = useState(false);
+  const [selectedServiceAccount, setSelectedServiceAccount] = useState<ServiceAccount | null>(null);
+
+  // Policy handlers
+  const handleViewPolicy = (policy: Policy) => {
+    setSelectedPolicy(policy);
+    setViewPolicyDialogOpen(true);
+  };
+
+  const handleEditPolicy = (policy: Policy) => {
+    setSelectedPolicy(policy);
+    setEditPolicyDialogOpen(true);
+  };
+
+  const handleDuplicatePolicy = (policy: Policy) => {
+    toast({
+      title: "Policy Duplicated",
+      description: `${policy.name} has been duplicated as "${policy.name}-copy".`,
+    });
+  };
+
+  const handleDeletePolicy = (policy: Policy) => {
+    setSelectedPolicy(policy);
+    setDeletePolicyDialogOpen(true);
+  };
+
+  const confirmDeletePolicy = () => {
+    toast({
+      title: "Policy Deleted",
+      description: `${selectedPolicy?.name} has been deleted.`,
+    });
+    setDeletePolicyDialogOpen(false);
+    setSelectedPolicy(null);
+  };
+
+  // Role handlers
+  const handleViewRole = (role: Role) => {
+    setSelectedRole(role);
+    setViewRoleDialogOpen(true);
+  };
+
+  const handleEditPolicies = (role: Role) => {
+    setSelectedRole(role);
+    setEditPoliciesDialogOpen(true);
+  };
+
+  const handleViewMembers = (role: Role) => {
+    setSelectedRole(role);
+    setViewMembersDialogOpen(true);
+  };
+
+  const handleDeleteRole = (role: Role) => {
+    setSelectedRole(role);
+    setDeleteRoleDialogOpen(true);
+  };
+
+  const confirmDeleteRole = () => {
+    toast({
+      title: "Role Deleted",
+      description: `${selectedRole?.name} has been deleted.`,
+    });
+    setDeleteRoleDialogOpen(false);
+    setSelectedRole(null);
+  };
+
+  // Service Account handlers
+  const handleRotateKeys = (sa: ServiceAccount) => {
+    toast({
+      title: "Keys Rotated",
+      description: `New keys have been generated for ${sa.name}. Download them now.`,
+    });
+  };
+
+  const handleEditRole = (sa: ServiceAccount) => {
+    setSelectedServiceAccount(sa);
+    setEditRoleDialogOpen(true);
+  };
+
+  const handleToggleServiceAccount = (sa: ServiceAccount) => {
+    const newStatus = sa.status === "active" ? "inactive" : "active";
+    toast({
+      title: `Service Account ${newStatus === "active" ? "Activated" : "Deactivated"}`,
+      description: `${sa.name} is now ${newStatus}.`,
+    });
+  };
+
+  const handleDeleteServiceAccount = (sa: ServiceAccount) => {
+    setSelectedServiceAccount(sa);
+    setDeleteServiceAccountDialogOpen(true);
+  };
+
+  const confirmDeleteServiceAccount = () => {
+    toast({
+      title: "Service Account Deleted",
+      description: `${selectedServiceAccount?.name} has been deleted.`,
+    });
+    setDeleteServiceAccountDialogOpen(false);
+    setSelectedServiceAccount(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -366,17 +522,19 @@ export default function IAMPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Policy</DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleViewPolicy(policy)}>
+                              View Policy
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEditPolicy(policy)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleDuplicatePolicy(policy)}>
                               <Copy className="mr-2 h-4 w-4" />
                               Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeletePolicy(policy)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
@@ -439,11 +597,17 @@ export default function IAMPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Role</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Policies</DropdownMenuItem>
-                            <DropdownMenuItem>View Members</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleViewRole(role)}>
+                              View Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEditPolicies(role)}>
+                              Edit Policies
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleViewMembers(role)}>
+                              View Members
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteRole(role)}>
                               Delete Role
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -507,18 +671,24 @@ export default function IAMPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleRotateKeys(sa)}>
                               <Key className="mr-2 h-4 w-4" />
                               Rotate Keys
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Edit Role</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEditRole(sa)}>
+                              Edit Role
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {sa.status === "active" ? (
-                              <DropdownMenuItem>Deactivate</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
+                                Deactivate
+                              </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem>Activate</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
+                                Activate
+                              </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteServiceAccount(sa)}>
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -532,6 +702,278 @@ export default function IAMPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Policy Dialog */}
+      <Dialog open={viewPolicyDialogOpen} onOpenChange={setViewPolicyDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedPolicy?.name}</DialogTitle>
+            <DialogDescription>{selectedPolicy?.description}</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div>
+                <Label className="text-muted-foreground">Type</Label>
+                <p className="font-medium">{selectedPolicy?.type}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Statements</Label>
+                <p className="font-medium">{selectedPolicy?.statements}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Attached To</Label>
+                <p className="font-medium">{selectedPolicy?.attachedCount} entities</p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Policy Document</Label>
+              <pre className="bg-muted p-4 rounded-md text-sm mt-2 overflow-x-auto">
+{`{
+  "Version": "2024-01-01",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["vm:*"],
+      "Resource": "*"
+    }
+  ]
+}`}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewPolicyDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Policy Dialog */}
+      <Dialog open={editPolicyDialogOpen} onOpenChange={setEditPolicyDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Policy</DialogTitle>
+            <DialogDescription>Update policy configuration</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Policy Name</Label>
+              <Input defaultValue={selectedPolicy?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Description</Label>
+              <Input defaultValue={selectedPolicy?.description} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Policy Document (JSON)</Label>
+              <Textarea className="font-mono text-sm h-48" defaultValue={`{
+  "Version": "2024-01-01",
+  "Statement": []
+}`} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPolicyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Policy Updated", description: `${selectedPolicy?.name} has been updated.` });
+              setEditPolicyDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Policy Confirmation */}
+      <AlertDialog open={deletePolicyDialogOpen} onOpenChange={setDeletePolicyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Policy</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedPolicy?.name}"? This will remove the policy from all {selectedPolicy?.attachedCount} attached entities.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePolicy}>Delete Policy</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View Role Dialog */}
+      <Dialog open={viewRoleDialogOpen} onOpenChange={setViewRoleDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedRole?.name}</DialogTitle>
+            <DialogDescription>{selectedRole?.description}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground">Type</Label>
+                <p className="font-medium">{selectedRole?.type}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Members</Label>
+                <p className="font-medium">{selectedRole?.members}</p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Attached Policies</Label>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {selectedRole?.policies.map((policy) => (
+                  <Badge key={policy} variant="secondary">{policy}</Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewRoleDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Policies Dialog */}
+      <Dialog open={editPoliciesDialogOpen} onOpenChange={setEditPoliciesDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Role Policies</DialogTitle>
+            <DialogDescription>Manage policies attached to {selectedRole?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {mockPolicies.map((policy) => (
+              <div key={policy.id} className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{policy.name}</p>
+                  <p className="text-sm text-muted-foreground">{policy.description}</p>
+                </div>
+                <Switch defaultChecked={selectedRole?.policies.includes(policy.name)} />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPoliciesDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Role Updated", description: `${selectedRole?.name} policies have been updated.` });
+              setEditPoliciesDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Members Dialog */}
+      <Dialog open={viewMembersDialogOpen} onOpenChange={setViewMembersDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedRole?.name} Members</DialogTitle>
+            <DialogDescription>{selectedRole?.members} members with this role</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Admin User</TableCell>
+                  <TableCell>admin@company.com</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Operations Team</TableCell>
+                  <TableCell>ops@company.com</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewMembersDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Role Confirmation */}
+      <AlertDialog open={deleteRoleDialogOpen} onOpenChange={setDeleteRoleDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedRole?.name}"? This will affect {selectedRole?.members} members.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteRole}>Delete Role</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Service Account Role Dialog */}
+      <Dialog open={editRoleDialogOpen} onOpenChange={setEditRoleDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Service Account Role</DialogTitle>
+            <DialogDescription>Change role for {selectedServiceAccount?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {mockRoles.map((role) => (
+              <div key={role.id} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name="role"
+                  id={role.id}
+                  defaultChecked={selectedServiceAccount?.role === role.name}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor={role.id} className="flex-1 cursor-pointer">
+                  <p className="font-medium">{role.name}</p>
+                  <p className="text-sm text-muted-foreground">{role.description}</p>
+                </Label>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRoleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Role Updated", description: `${selectedServiceAccount?.name} role has been updated.` });
+              setEditRoleDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Service Account Confirmation */}
+      <AlertDialog open={deleteServiceAccountDialogOpen} onOpenChange={setDeleteServiceAccountDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedServiceAccount?.name}"? This action cannot be undone and any services using this account will lose access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteServiceAccount}>Delete Account</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

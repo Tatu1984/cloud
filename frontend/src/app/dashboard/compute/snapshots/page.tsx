@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, Camera, RotateCcw, Trash2, Server, Calendar, HardDrive } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,11 +62,64 @@ const mockSnapshots = [
   { id: "snap-005", name: "cache-server-snapshot", vmId: "vm-004", vmName: "cache-server-01", size: 12, status: "creating", createdAt: new Date(), type: "manual" },
 ];
 
+type Snapshot = typeof mockSnapshots[0];
+
 export default function SnapshotsPage() {
   const [selectedSnapshots, setSelectedSnapshots] = useState<string[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [createVMDialogOpen, setCreateVMDialogOpen] = useState(false);
+  const [snapshotForAction, setSnapshotForAction] = useState<Snapshot | null>(null);
+  const { toast } = useToast();
 
   const totalSize = mockSnapshots.reduce((sum, s) => sum + s.size, 0);
+
+  const handleRestoreToVM = (snapshot: Snapshot) => {
+    setSnapshotForAction(snapshot);
+    setRestoreDialogOpen(true);
+  };
+
+  const handleCreateVMFromSnapshot = (snapshot: Snapshot) => {
+    setSnapshotForAction(snapshot);
+    setCreateVMDialogOpen(true);
+  };
+
+  const openDeleteDialog = (snapshot: Snapshot) => {
+    setSnapshotForAction(snapshot);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSnapshot = () => {
+    if (!snapshotForAction) return;
+    toast({
+      title: "Snapshot Deleted",
+      description: `${snapshotForAction.name} has been deleted successfully.`,
+      variant: "destructive",
+    });
+    setDeleteDialogOpen(false);
+    setSnapshotForAction(null);
+  };
+
+  const handleRestoreConfirm = () => {
+    if (!snapshotForAction) return;
+    toast({
+      title: "Restore Initiated",
+      description: `Restoring ${snapshotForAction.vmName} from ${snapshotForAction.name}...`,
+    });
+    setRestoreDialogOpen(false);
+    setSnapshotForAction(null);
+  };
+
+  const handleCreateVMConfirm = () => {
+    if (!snapshotForAction) return;
+    toast({
+      title: "VM Creation Started",
+      description: `Creating new VM from snapshot ${snapshotForAction.name}...`,
+    });
+    setCreateVMDialogOpen(false);
+    setSnapshotForAction(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -259,16 +323,25 @@ export default function SnapshotsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleRestoreToVM(snapshot)}
+                          disabled={snapshot.status !== "available"}
+                        >
                           <RotateCcw className="mr-2 h-4 w-4" />
                           Restore to VM
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleCreateVMFromSnapshot(snapshot)}
+                          disabled={snapshot.status !== "available"}
+                        >
                           <Server className="mr-2 h-4 w-4" />
                           Create VM from Snapshot
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => openDeleteDialog(snapshot)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -281,6 +354,117 @@ export default function SnapshotsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Restore to VM Dialog */}
+      <Dialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restore Snapshot to VM</DialogTitle>
+            <DialogDescription>
+              This will restore the snapshot to the original VM. The VM will be restarted.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Snapshot</p>
+                    <p className="text-sm text-muted-foreground">
+                      {snapshotForAction?.name}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{snapshotForAction?.size} GB</Badge>
+                </div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Target VM</p>
+                    <p className="text-sm text-muted-foreground">
+                      {snapshotForAction?.vmName}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">Will Restart</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRestoreDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRestoreConfirm}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Restore Snapshot
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create VM from Snapshot Dialog */}
+      <Dialog open={createVMDialogOpen} onOpenChange={setCreateVMDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create VM from Snapshot</DialogTitle>
+            <DialogDescription>
+              Create a new virtual machine using this snapshot as the base image.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="new-vm-name">New VM Name</Label>
+              <Input
+                id="new-vm-name"
+                placeholder={`${snapshotForAction?.vmName}-restored`}
+                defaultValue={`${snapshotForAction?.vmName}-restored`}
+              />
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Source Snapshot</p>
+                  <p className="text-sm text-muted-foreground">
+                    {snapshotForAction?.name}
+                  </p>
+                </div>
+                <Badge variant="outline">{snapshotForAction?.size} GB</Badge>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateVMDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateVMConfirm}>
+              <Server className="mr-2 h-4 w-4" />
+              Create VM
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Snapshot</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {snapshotForAction?.name}? This action cannot be undone.
+              The snapshot data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSnapshot}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Snapshot
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

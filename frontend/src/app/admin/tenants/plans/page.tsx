@@ -13,6 +13,7 @@ import {
   Network,
   Database,
   Infinity,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,9 +50,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { mockTenants } from "@/stores/mock-data";
 
 // Mock plans data
@@ -142,18 +161,139 @@ const quotaTemplates = [
   { name: "Balanced", vms: 25, vcpus: 128, memory: 256, storage: 5000 },
 ];
 
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  basePrice: number;
+  active: boolean;
+  tenantCount: number;
+  quotas: {
+    maxVMs: number;
+    maxvCPUs: number;
+    maxMemory: number;
+    maxStorage: number;
+    maxSnapshots: number;
+    maxLoadBalancers: number;
+    maxDatabases: number;
+    maxUsers: number;
+    supportLevel: string;
+    backupRetention: number;
+  };
+  features: string[];
+}
+
+interface QuotaTemplate {
+  name: string;
+  vms: number;
+  vcpus: number;
+  memory: number;
+  storage: number;
+}
+
 function formatQuota(value: number): string {
   if (value === -1) return "Unlimited";
   return value.toLocaleString();
 }
 
 export default function PlansPage() {
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Plan state
+  const [editPlanDialogOpen, setEditPlanDialogOpen] = useState(false);
+  const [deletePlanDialogOpen, setDeletePlanDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+  // Template state
+  const [editTemplateDialogOpen, setEditTemplateDialogOpen] = useState(false);
+  const [applyTemplateDialogOpen, setApplyTemplateDialogOpen] = useState(false);
+  const [deleteTemplateDialogOpen, setDeleteTemplateDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<QuotaTemplate | null>(null);
 
   const planDistribution = {
     starter: mockTenants.filter((t) => t.organization.plan === "starter").length,
     professional: mockTenants.filter((t) => t.organization.plan === "professional").length,
     enterprise: mockTenants.filter((t) => t.organization.plan === "enterprise").length,
+  };
+
+  // Plan handlers
+  const handleEditPlan = (plan: Plan) => {
+    setSelectedPlan(plan);
+    setEditPlanDialogOpen(true);
+  };
+
+  const handleDuplicatePlan = (plan: Plan) => {
+    toast({
+      title: "Plan Duplicated",
+      description: `${plan.name} has been duplicated as "${plan.name} (Copy)".`,
+    });
+  };
+
+  const handleDeletePlan = (plan: Plan) => {
+    setSelectedPlan(plan);
+    setDeletePlanDialogOpen(true);
+  };
+
+  const confirmDeletePlan = () => {
+    toast({
+      title: "Plan Deleted",
+      description: `${selectedPlan?.name} has been deleted.`,
+    });
+    setDeletePlanDialogOpen(false);
+    setSelectedPlan(null);
+  };
+
+  const savePlan = () => {
+    toast({
+      title: "Plan Updated",
+      description: `${selectedPlan?.name} has been updated.`,
+    });
+    setEditPlanDialogOpen(false);
+    setSelectedPlan(null);
+  };
+
+  // Template handlers
+  const handleEditTemplate = (template: QuotaTemplate) => {
+    setSelectedTemplate(template);
+    setEditTemplateDialogOpen(true);
+  };
+
+  const handleApplyTemplate = (template: QuotaTemplate) => {
+    setSelectedTemplate(template);
+    setApplyTemplateDialogOpen(true);
+  };
+
+  const handleDeleteTemplate = (template: QuotaTemplate) => {
+    setSelectedTemplate(template);
+    setDeleteTemplateDialogOpen(true);
+  };
+
+  const confirmDeleteTemplate = () => {
+    toast({
+      title: "Template Deleted",
+      description: `${selectedTemplate?.name} has been deleted.`,
+    });
+    setDeleteTemplateDialogOpen(false);
+    setSelectedTemplate(null);
+  };
+
+  const saveTemplate = () => {
+    toast({
+      title: "Template Updated",
+      description: `${selectedTemplate?.name} has been updated.`,
+    });
+    setEditTemplateDialogOpen(false);
+    setSelectedTemplate(null);
+  };
+
+  const confirmApplyTemplate = () => {
+    toast({
+      title: "Template Applied",
+      description: `${selectedTemplate?.name} quotas have been applied to the selected tenant.`,
+    });
+    setApplyTemplateDialogOpen(false);
+    setSelectedTemplate(null);
   };
 
   return (
@@ -252,13 +392,16 @@ export default function PlansPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleEditPlan(plan)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Plan
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleDuplicatePlan(plan)}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Duplicate
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onSelect={() => handleDeletePlan(plan)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete Plan
                         </DropdownMenuItem>
@@ -371,13 +514,16 @@ export default function PlansPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEditTemplate(template)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Apply to Tenant</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleApplyTemplate(template)}>
+                              Apply to Tenant
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteTemplate(template)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -419,11 +565,188 @@ export default function PlansPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t pt-4">
-              <Button>Save Defaults</Button>
+              <Button onClick={() => toast({ title: "Defaults Saved", description: "Default resource limits have been updated." })}>
+                Save Defaults
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Plan Dialog */}
+      <Dialog open={editPlanDialogOpen} onOpenChange={setEditPlanDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Plan</DialogTitle>
+            <DialogDescription>
+              Update {selectedPlan?.name} plan configuration
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Plan Name</Label>
+                <Input defaultValue={selectedPlan?.name} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Base Price ($/mo)</Label>
+                <Input type="number" defaultValue={selectedPlan?.basePrice} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Description</Label>
+              <Input defaultValue={selectedPlan?.description} />
+            </div>
+            <div className="border-t pt-4">
+              <Label className="text-base">Resource Quotas</Label>
+              <div className="grid grid-cols-4 gap-4 mt-3">
+                <div className="grid gap-2">
+                  <Label className="text-xs">Max VMs</Label>
+                  <Input type="number" defaultValue={selectedPlan?.quotas.maxVMs === -1 ? "" : selectedPlan?.quotas.maxVMs} placeholder="Unlimited" />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs">Max vCPUs</Label>
+                  <Input type="number" defaultValue={selectedPlan?.quotas.maxvCPUs === -1 ? "" : selectedPlan?.quotas.maxvCPUs} placeholder="Unlimited" />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs">Max Memory (GB)</Label>
+                  <Input type="number" defaultValue={selectedPlan?.quotas.maxMemory === -1 ? "" : selectedPlan?.quotas.maxMemory} placeholder="Unlimited" />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-xs">Max Storage (GB)</Label>
+                  <Input type="number" defaultValue={selectedPlan?.quotas.maxStorage === -1 ? "" : selectedPlan?.quotas.maxStorage} placeholder="Unlimited" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPlanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={savePlan}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Plan Confirmation */}
+      <AlertDialog open={deletePlanDialogOpen} onOpenChange={setDeletePlanDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the "{selectedPlan?.name}" plan? Tenants on this plan will need to be migrated to another plan first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePlan}>Delete Plan</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Template Dialog */}
+      <Dialog open={editTemplateDialogOpen} onOpenChange={setEditTemplateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Quota Template</DialogTitle>
+            <DialogDescription>
+              Update {selectedTemplate?.name} template configuration
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Template Name</Label>
+              <Input defaultValue={selectedTemplate?.name} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Max VMs</Label>
+                <Input type="number" defaultValue={selectedTemplate?.vms} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Max vCPUs</Label>
+                <Input type="number" defaultValue={selectedTemplate?.vcpus} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Max Memory (GB)</Label>
+                <Input type="number" defaultValue={selectedTemplate?.memory} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Max Storage (GB)</Label>
+                <Input type="number" defaultValue={selectedTemplate?.storage} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTemplateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveTemplate}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply Template Dialog */}
+      <Dialog open={applyTemplateDialogOpen} onOpenChange={setApplyTemplateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Apply Template to Tenant</DialogTitle>
+            <DialogDescription>
+              Apply "{selectedTemplate?.name}" quotas to a tenant
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Select Tenant</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a tenant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockTenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.organization.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="bg-muted p-4 rounded-md">
+              <p className="text-sm font-medium mb-2">Quotas to apply:</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <p>VMs: {selectedTemplate?.vms}</p>
+                <p>vCPUs: {selectedTemplate?.vcpus}</p>
+                <p>Memory: {selectedTemplate?.memory} GB</p>
+                <p>Storage: {selectedTemplate?.storage} GB</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyTemplateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmApplyTemplate}>Apply Template</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Template Confirmation */}
+      <AlertDialog open={deleteTemplateDialogOpen} onOpenChange={setDeleteTemplateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the "{selectedTemplate?.name}" template? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteTemplate}>Delete Template</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

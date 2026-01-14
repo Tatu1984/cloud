@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -41,8 +42,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock control plane services
 const mockServices = [
@@ -168,6 +189,22 @@ const statusConfig = {
   stopped: { icon: XCircle, color: "text-red-500", variant: "destructive" as const },
 };
 
+interface ControlPlaneService {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  instances: number;
+  healthyInstances: number;
+  version: string;
+  cpu: number;
+  memory: number;
+  requests: number;
+  latency: number;
+  uptime: number;
+  issue?: string;
+}
+
 function formatUptime(seconds: number): string {
   if (seconds === 0) return "Stopped";
   const days = Math.floor(seconds / 86400);
@@ -176,6 +213,14 @@ function formatUptime(seconds: number): string {
 }
 
 export default function ControlPlanePage() {
+  const { toast } = useToast();
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false);
+  const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [stopDialogOpen, setStopDialogOpen] = useState(false);
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<ControlPlaneService | null>(null);
+
   const runningServices = mockServices.filter((s) => s.status === "running").length;
   const degradedServices = mockServices.filter((s) => s.status === "degraded").length;
   const totalRequests = mockServices.reduce((sum, s) => sum + s.requests, 0);
@@ -183,6 +228,65 @@ export default function ControlPlanePage() {
     mockServices.filter((s) => s.status === "running").reduce((sum, s) => sum + s.latency, 0) /
       mockServices.filter((s) => s.status === "running").length
   );
+
+  const handleViewLogs = (service: ControlPlaneService) => {
+    setSelectedService(service);
+    setLogsDialogOpen(true);
+  };
+
+  const handleViewMetrics = (service: ControlPlaneService) => {
+    setSelectedService(service);
+    setMetricsDialogOpen(true);
+  };
+
+  const handleConfigure = (service: ControlPlaneService) => {
+    setSelectedService(service);
+    setConfigDialogOpen(true);
+  };
+
+  const handleStopService = (service: ControlPlaneService) => {
+    setSelectedService(service);
+    setStopDialogOpen(true);
+  };
+
+  const handleStartService = (service: ControlPlaneService) => {
+    toast({
+      title: "Service Starting",
+      description: `${service.name} is starting up...`,
+    });
+  };
+
+  const handleRestartService = (service: ControlPlaneService) => {
+    setSelectedService(service);
+    setRestartDialogOpen(true);
+  };
+
+  const confirmStop = () => {
+    toast({
+      title: "Service Stopped",
+      description: `${selectedService?.name} has been stopped.`,
+    });
+    setStopDialogOpen(false);
+    setSelectedService(null);
+  };
+
+  const confirmRestart = () => {
+    toast({
+      title: "Service Restarting",
+      description: `${selectedService?.name} is restarting...`,
+    });
+    setRestartDialogOpen(false);
+    setSelectedService(null);
+  };
+
+  const saveConfig = () => {
+    toast({
+      title: "Configuration Saved",
+      description: `${selectedService?.name} configuration has been updated.`,
+    });
+    setConfigDialogOpen(false);
+    setSelectedService(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -357,25 +461,29 @@ export default function ControlPlanePage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Logs</DropdownMenuItem>
-                          <DropdownMenuItem>View Metrics</DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleViewLogs(service)}>
+                            View Logs
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleViewMetrics(service)}>
+                            View Metrics
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleConfigure(service)}>
                             <Settings className="mr-2 h-4 w-4" />
                             Configure
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {service.status === "running" ? (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStopService(service)}>
                               <Pause className="mr-2 h-4 w-4" />
                               Stop Service
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleStartService(service)}>
                               <Play className="mr-2 h-4 w-4" />
                               Start Service
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleRestartService(service)}>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Restart
                           </DropdownMenuItem>
@@ -389,6 +497,148 @@ export default function ControlPlanePage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Logs Dialog */}
+      <Dialog open={logsDialogOpen} onOpenChange={setLogsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Service Logs - {selectedService?.name}</DialogTitle>
+            <DialogDescription>
+              Recent log entries from {selectedService?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted p-4 rounded-md font-mono text-sm h-64 overflow-y-auto">
+            <p className="text-muted-foreground">[2024-03-15 10:32:15] INFO: Health check passed</p>
+            <p className="text-muted-foreground">[2024-03-15 10:32:10] INFO: Processing request #12847</p>
+            <p className="text-muted-foreground">[2024-03-15 10:32:05] INFO: Connection established from 10.0.1.25</p>
+            <p className="text-yellow-500">[2024-03-15 10:32:00] WARN: High memory usage detected (78%)</p>
+            <p className="text-muted-foreground">[2024-03-15 10:31:55] INFO: Request completed in 24ms</p>
+            <p className="text-muted-foreground">[2024-03-15 10:31:50] INFO: Processing request #12846</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Metrics Dialog */}
+      <Dialog open={metricsDialogOpen} onOpenChange={setMetricsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Service Metrics - {selectedService?.name}</DialogTitle>
+            <DialogDescription>
+              Real-time performance metrics
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground">CPU Usage</Label>
+                <div className="flex items-center gap-2">
+                  <Progress value={selectedService?.cpu || 0} className="flex-1" />
+                  <span className="font-medium">{selectedService?.cpu}%</span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Memory Usage</Label>
+                <div className="flex items-center gap-2">
+                  <Progress value={selectedService?.memory || 0} className="flex-1" />
+                  <span className="font-medium">{selectedService?.memory}%</span>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground">Requests/sec</Label>
+                <p className="text-2xl font-bold">{((selectedService?.requests || 0) / 60).toFixed(0)}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Avg Latency</Label>
+                <p className="text-2xl font-bold">{selectedService?.latency}ms</p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Instances</Label>
+              <p className="font-medium">{selectedService?.healthyInstances}/{selectedService?.instances} healthy</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMetricsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Configure Dialog */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Configure {selectedService?.name}</DialogTitle>
+            <DialogDescription>
+              Update service configuration settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Replicas</Label>
+              <Input type="number" defaultValue={selectedService?.instances} />
+            </div>
+            <div className="grid gap-2">
+              <Label>CPU Limit (cores)</Label>
+              <Input type="number" defaultValue="2" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Memory Limit (GB)</Label>
+              <Input type="number" defaultValue="4" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Log Level</Label>
+              <Input defaultValue="INFO" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveConfig}>Save Configuration</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stop Service Confirmation */}
+      <AlertDialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop Service</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to stop {selectedService?.name}? This may affect dependent services and tenant workloads.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStop}>Stop Service</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restart Service Confirmation */}
+      <AlertDialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restart Service</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to restart {selectedService?.name}? This will cause a brief interruption to the service.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRestart}>Restart Service</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

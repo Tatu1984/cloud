@@ -63,6 +63,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -70,6 +80,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 type AlertSeverity = "critical" | "warning" | "info";
 type AlertStatus = "firing" | "resolved" | "acknowledged";
@@ -516,10 +527,26 @@ function CreateAlertRuleDialog() {
 }
 
 export default function AlertsPage() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Dialog states for alerts
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [viewRuleOpen, setViewRuleOpen] = useState(false);
+  const [viewHistoryOpen, setViewHistoryOpen] = useState(false);
+
+  // Dialog states for alert rules
+  const [selectedRule, setSelectedRule] = useState<AlertRule | null>(null);
+  const [editRuleOpen, setEditRuleOpen] = useState(false);
+  const [deleteRuleOpen, setDeleteRuleOpen] = useState(false);
+
+  // Dialog states for notification channels
+  const [selectedChannel, setSelectedChannel] = useState<NotificationChannel | null>(null);
+  const [editChannelOpen, setEditChannelOpen] = useState(false);
+  const [deleteChannelOpen, setDeleteChannelOpen] = useState(false);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -761,21 +788,45 @@ export default function AlertsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {alert.status === "firing" && (
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    toast({
+                                      title: "Alert acknowledged",
+                                      description: `${alert.name} has been acknowledged.`,
+                                    });
+                                  }}
+                                >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Acknowledge
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Alert silenced",
+                                    description: `${alert.name} will be silenced for 1 hour.`,
+                                  });
+                                }}
+                              >
                                 <BellOff className="mr-2 h-4 w-4" />
                                 Silence (1h)
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setSelectedAlert(alert);
+                                  setViewRuleOpen(true);
+                                }}
+                              >
                                 <Settings className="mr-2 h-4 w-4" />
                                 View Rule
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setSelectedAlert(alert);
+                                  setViewHistoryOpen(true);
+                                }}
+                              >
                                 <History className="mr-2 h-4 w-4" />
                                 View History
                               </DropdownMenuItem>
@@ -879,16 +930,34 @@ export default function AlertsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setSelectedRule(rule);
+                                  setEditRuleOpen(true);
+                                }}
+                              >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  toast({
+                                    title: "Rule duplicated",
+                                    description: `A copy of "${rule.name}" has been created.`,
+                                  });
+                                }}
+                              >
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onSelect={() => {
+                                  setSelectedRule(rule);
+                                  setDeleteRuleOpen(true);
+                                }}
+                              >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                               </DropdownMenuItem>
@@ -1001,16 +1070,34 @@ export default function AlertsPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setSelectedChannel(channel);
+                                    setEditChannelOpen(true);
+                                  }}
+                                >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    toast({
+                                      title: "Test notification sent",
+                                      description: `A test notification was sent to ${channel.name}.`,
+                                    });
+                                  }}
+                                >
                                   <Bell className="mr-2 h-4 w-4" />
                                   Send Test
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive">
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onSelect={() => {
+                                    setSelectedChannel(channel);
+                                    setDeleteChannelOpen(true);
+                                  }}
+                                >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
                                 </DropdownMenuItem>
@@ -1027,6 +1114,251 @@ export default function AlertsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Rule Dialog */}
+      <Dialog open={viewRuleOpen} onOpenChange={setViewRuleOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Alert Rule: {selectedAlert?.name}</DialogTitle>
+            <DialogDescription>
+              View the rule configuration for this alert
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Resource</Label>
+              <p className="text-sm">{selectedAlert?.resource} ({selectedAlert?.resourceType})</p>
+            </div>
+            <div className="grid gap-2">
+              <Label>Message</Label>
+              <p className="text-sm text-muted-foreground">{selectedAlert?.message}</p>
+            </div>
+            <div className="grid gap-2">
+              <Label>Triggered At</Label>
+              <p className="text-sm">{selectedAlert?.triggeredAt && formatTime(selectedAlert.triggeredAt)}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewRuleOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setViewRuleOpen(false);
+              setEditRuleOpen(true);
+            }}>
+              Edit Rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View History Dialog */}
+      <Dialog open={viewHistoryOpen} onOpenChange={setViewHistoryOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Alert History: {selectedAlert?.name}</DialogTitle>
+            <DialogDescription>
+              Historical events for this alert
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[300px] mt-4">
+            <div className="space-y-3">
+              {mockAlertHistory
+                .filter(h => h.alertName === selectedAlert?.name)
+                .map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Badge variant={entry.status === "fired" ? "destructive" : "secondary"}>
+                        {entry.status}
+                      </Badge>
+                      <span className="text-sm">{entry.resource}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{getTimeSince(entry.timestamp)}</span>
+                  </div>
+                ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewHistoryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Rule Dialog */}
+      <Dialog open={editRuleOpen} onOpenChange={setEditRuleOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Alert Rule</DialogTitle>
+            <DialogDescription>
+              Modify the configuration for {selectedRule?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-rule-name">Rule Name</Label>
+              <Input id="edit-rule-name" defaultValue={selectedRule?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-rule-desc">Description</Label>
+              <Textarea id="edit-rule-desc" defaultValue={selectedRule?.description} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label>Condition</Label>
+                <Select defaultValue={selectedRule?.condition}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value=">">Greater than</SelectItem>
+                    <SelectItem value=">=">Greater or equal</SelectItem>
+                    <SelectItem value="<">Less than</SelectItem>
+                    <SelectItem value="<=">Less or equal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-threshold">Threshold</Label>
+                <Input id="edit-threshold" type="number" defaultValue={selectedRule?.threshold} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Duration</Label>
+                <Select defaultValue={selectedRule?.duration}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1m">1 minute</SelectItem>
+                    <SelectItem value="5m">5 minutes</SelectItem>
+                    <SelectItem value="10m">10 minutes</SelectItem>
+                    <SelectItem value="15m">15 minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRuleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditRuleOpen(false);
+              toast({
+                title: "Rule updated",
+                description: `${selectedRule?.name} has been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Rule Confirmation */}
+      <AlertDialog open={deleteRuleOpen} onOpenChange={setDeleteRuleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Alert Rule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedRule?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Rule deleted",
+                  description: `${selectedRule?.name} has been deleted.`,
+                });
+                setSelectedRule(null);
+              }}
+            >
+              Delete Rule
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Channel Dialog */}
+      <Dialog open={editChannelOpen} onOpenChange={setEditChannelOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Notification Channel</DialogTitle>
+            <DialogDescription>
+              Modify the configuration for {selectedChannel?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-channel-name">Channel Name</Label>
+              <Input id="edit-channel-name" defaultValue={selectedChannel?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Channel Type</Label>
+              <Select defaultValue={selectedChannel?.type}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="slack">Slack</SelectItem>
+                  <SelectItem value="webhook">Webhook</SelectItem>
+                  <SelectItem value="pagerduty">PagerDuty</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-channel-config">Configuration</Label>
+              <Input id="edit-channel-config" defaultValue={selectedChannel?.config} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditChannelOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditChannelOpen(false);
+              toast({
+                title: "Channel updated",
+                description: `${selectedChannel?.name} has been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Channel Confirmation */}
+      <AlertDialog open={deleteChannelOpen} onOpenChange={setDeleteChannelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Notification Channel</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedChannel?.name}"? Alert rules using this channel will need to be updated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Channel deleted",
+                  description: `${selectedChannel?.name} has been deleted.`,
+                });
+                setSelectedChannel(null);
+              }}
+            >
+              Delete Channel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

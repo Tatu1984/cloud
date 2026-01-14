@@ -57,15 +57,28 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { mockFileShares } from "@/stores/mock-data";
 import { useAuthStore } from "@/stores/auth-store";
 import { FileShare } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 // Protocol configuration
 const protocolConfig: Record<FileShare["protocol"], { label: string; icon: string; color: string }> = {
@@ -90,11 +103,25 @@ const statusConfig: Record<FileShare["status"], { variant: "default" | "secondar
 };
 
 export default function FileSharesPage() {
+  const { toast } = useToast();
   const { currentProject } = useAuthStore();
   const [search, setSearch] = useState("");
   const [protocolFilter, setProtocolFilter] = useState<string>("all");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [selectedShare, setSelectedShare] = useState<FileShare | null>(null);
+
+  // Dialog states
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [mountInstructionsOpen, setMountInstructionsOpen] = useState(false);
+  const [accessControlOpen, setAccessControlOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resizeOpen, setResizeOpen] = useState(false);
+  const [deleteShareOpen, setDeleteShareOpen] = useState(false);
+
+  // ACL rule dialog states
+  const [editRuleOpen, setEditRuleOpen] = useState(false);
+  const [deleteRuleOpen, setDeleteRuleOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<FileShare["accessControl"][0] | null>(null);
 
   const fileShares = mockFileShares.filter((fs) => fs.projectId === currentProject?.id);
 
@@ -450,11 +477,22 @@ export default function FileSharesPage() {
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onSelect={() => {
+                                                setSelectedRule(acl);
+                                                setEditRuleOpen(true);
+                                              }}
+                                            >
                                               <Edit className="mr-2 h-4 w-4" />
                                               Edit Rule
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-destructive">
+                                            <DropdownMenuItem
+                                              className="text-destructive"
+                                              onSelect={() => {
+                                                setSelectedRule(acl);
+                                                setDeleteRuleOpen(true);
+                                              }}
+                                            >
                                               <Trash2 className="mr-2 h-4 w-4" />
                                               Delete Rule
                                             </DropdownMenuItem>
@@ -520,33 +558,72 @@ export default function FileSharesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setViewDetailsOpen(true);
+                          }}
+                        >
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setMountInstructionsOpen(true);
+                          }}
+                        >
                           <Terminal className="mr-2 h-4 w-4" />
                           Mount Instructions
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            copyToClipboard(share.mountTarget);
+                            toast({
+                              title: "Copied to clipboard",
+                              description: "Mount target has been copied.",
+                            });
+                          }}
+                        >
                           <Copy className="mr-2 h-4 w-4" />
                           Copy Mount Target
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setAccessControlOpen(true);
+                          }}
+                        >
                           <Shield className="mr-2 h-4 w-4" />
                           Access Control
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setSettingsOpen(true);
+                          }}
+                        >
                           <Settings className="mr-2 h-4 w-4" />
                           Settings
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setResizeOpen(true);
+                          }}
+                        >
                           <HardDrive className="mr-2 h-4 w-4" />
                           Resize
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => {
+                            setSelectedShare(share);
+                            setDeleteShareOpen(true);
+                          }}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete File Share
                         </DropdownMenuItem>
@@ -630,6 +707,321 @@ export default function FileSharesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>File Share Details</DialogTitle>
+            <DialogDescription>
+              Details for {selectedShare?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Size</Label>
+                <p className="font-medium">{selectedShare?.size} GB</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Used</Label>
+                <p className="font-medium">{selectedShare?.used} GB</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Protocol</Label>
+                <p className="font-medium">{selectedShare && protocolConfig[selectedShare.protocol].label}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Performance</Label>
+                <p className="font-medium">{selectedShare && tierConfig[selectedShare.performanceTier].label}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Region</Label>
+                <p className="font-medium">{selectedShare?.region}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground">Zone</Label>
+                <p className="font-medium">{selectedShare?.zone}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mount Instructions Dialog */}
+      <Dialog open={mountInstructionsOpen} onOpenChange={setMountInstructionsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Mount Instructions</DialogTitle>
+            <DialogDescription>
+              Commands to mount {selectedShare?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Mount Target</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted px-3 py-2 rounded">
+                  {selectedShare?.mountTarget}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedShare) copyToClipboard(selectedShare.mountTarget);
+                    toast({ title: "Copied!", description: "Mount target copied to clipboard." });
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {selectedShare && (selectedShare.protocol === "nfs" || selectedShare.protocol === "nfs-smb") && (
+              <div className="space-y-2">
+                <Label>NFS Mount (Linux/macOS)</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-muted px-3 py-2 rounded font-mono">
+                    {getMountCommand(selectedShare, "nfs")}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedShare) copyToClipboard(getMountCommand(selectedShare, "nfs"));
+                      toast({ title: "Copied!", description: "NFS mount command copied." });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMountInstructionsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Access Control Dialog */}
+      <Dialog open={accessControlOpen} onOpenChange={setAccessControlOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Access Control</DialogTitle>
+            <DialogDescription>
+              Manage access rules for {selectedShare?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedShare?.accessControl.map((acl) => (
+              <div key={acl.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-mono text-sm">{acl.cidr}</p>
+                  <p className="text-xs text-muted-foreground">{acl.permission}</p>
+                </div>
+                <Badge variant={acl.permission === "admin" ? "destructive" : "default"}>
+                  {acl.permission}
+                </Badge>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAccessControlOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>File Share Settings</DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedShare?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="fs-name">Name</Label>
+              <Input id="fs-name" defaultValue={selectedShare?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Performance Tier</Label>
+              <Select defaultValue={selectedShare?.performanceTier}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="extreme">Extreme</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setSettingsOpen(false);
+              toast({
+                title: "Settings updated",
+                description: `Settings for ${selectedShare?.name} have been updated.`,
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resize Dialog */}
+      <Dialog open={resizeOpen} onOpenChange={setResizeOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Resize File Share</DialogTitle>
+            <DialogDescription>
+              Increase the capacity of {selectedShare?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Current Size</Label>
+              <p className="font-medium">{selectedShare?.size} GB</p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="new-size">New Size (GB)</Label>
+              <Input id="new-size" type="number" defaultValue={selectedShare?.size} min={selectedShare?.size} />
+              <p className="text-xs text-muted-foreground">
+                File shares can only be increased in size, not decreased.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResizeOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setResizeOpen(false);
+              toast({
+                title: "Resize initiated",
+                description: `${selectedShare?.name} is being resized.`,
+              });
+            }}>
+              Resize
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete File Share Confirmation */}
+      <AlertDialog open={deleteShareOpen} onOpenChange={setDeleteShareOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete File Share</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedShare?.name}"? This will permanently delete all data stored in this file share.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "File share deleted",
+                  description: `${selectedShare?.name} has been deleted.`,
+                });
+                setSelectedShare(null);
+              }}
+            >
+              Delete File Share
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit ACL Rule Dialog */}
+      <Dialog open={editRuleOpen} onOpenChange={setEditRuleOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Access Rule</DialogTitle>
+            <DialogDescription>
+              Update the access control rule
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="rule-cidr">CIDR</Label>
+              <Input id="rule-cidr" defaultValue={selectedRule?.cidr} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Permission</Label>
+              <Select defaultValue={selectedRule?.permission}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="read-only">Read Only</SelectItem>
+                  <SelectItem value="read-write">Read Write</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRuleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setEditRuleOpen(false);
+              toast({
+                title: "Rule updated",
+                description: "Access rule has been updated.",
+              });
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete ACL Rule Confirmation */}
+      <AlertDialog open={deleteRuleOpen} onOpenChange={setDeleteRuleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Access Rule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the access rule for "{selectedRule?.cidr}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Rule deleted",
+                  description: "Access rule has been deleted.",
+                });
+                setSelectedRule(null);
+              }}
+            >
+              Delete Rule
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

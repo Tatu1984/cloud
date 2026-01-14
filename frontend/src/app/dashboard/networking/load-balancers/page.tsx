@@ -22,6 +22,7 @@ import {
   Globe,
   RefreshCw,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -268,6 +279,10 @@ export default function LoadBalancersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedLB, setSelectedLB] = useState<LoadBalancerExtended | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [lbToDelete, setLbToDelete] = useState<LoadBalancerExtended | null>(null);
+  const { toast } = useToast();
 
   const filteredLBs = mockLoadBalancers.filter((lb) => {
     const matchesSearch =
@@ -282,6 +297,46 @@ export default function LoadBalancersPage() {
   const totalL7 = mockLoadBalancers.filter((lb) => lb.type === "L7").length;
   const totalL4 = mockLoadBalancers.filter((lb) => lb.type === "L4").length;
   const totalRPS = mockLoadBalancers.reduce((acc, lb) => acc + lb.trafficMetrics.requestsPerSecond, 0);
+
+  const handleCopyIP = (ip: string) => {
+    navigator.clipboard.writeText(ip);
+    toast({
+      title: "IP Copied",
+      description: `${ip} has been copied to clipboard.`,
+    });
+  };
+
+  const handleForceHealthCheck = () => {
+    if (!selectedLB) return;
+    toast({
+      title: "Health Check Initiated",
+      description: `Forcing health check on ${selectedLB.name}...`,
+    });
+  };
+
+  const handleEditConfiguration = () => {
+    if (!selectedLB) return;
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteLB = () => {
+    if (!lbToDelete) return;
+    toast({
+      title: "Load Balancer Deleted",
+      description: `${lbToDelete.name} has been deleted successfully.`,
+      variant: "destructive",
+    });
+    setDeleteDialogOpen(false);
+    setLbToDelete(null);
+    if (selectedLB?.id === lbToDelete.id) {
+      setSelectedLB(null);
+    }
+  };
+
+  const openDeleteDialog = (lb: LoadBalancerExtended) => {
+    setLbToDelete(lb);
+    setDeleteDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -535,20 +590,23 @@ export default function LoadBalancersPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleEditConfiguration}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Configuration
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleCopyIP(selectedLB.publicIp)}>
                       <Copy className="mr-2 h-4 w-4" />
                       Copy IP
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleForceHealthCheck}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Force Health Check
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onSelect={() => openDeleteDialog(selectedLB)}
+                    >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                     </DropdownMenuItem>
@@ -740,6 +798,87 @@ export default function LoadBalancersPage() {
           )}
         </Card>
       </div>
+
+      {/* Edit Configuration Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Load Balancer Configuration</DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedLB?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-lb-name">Name</Label>
+              <Input id="edit-lb-name" defaultValue={selectedLB?.name} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Type</Label>
+                <Select defaultValue={selectedLB?.type}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="L7">Application (L7)</SelectItem>
+                    <SelectItem value="L4">Network (L4)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Region</Label>
+                <Select defaultValue={selectedLB?.region}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="us-east-1">US East 1</SelectItem>
+                    <SelectItem value="us-west-1">US West 1</SelectItem>
+                    <SelectItem value="eu-west-1">EU West 1</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Configuration Updated",
+                description: `${selectedLB?.name} has been updated successfully.`,
+              });
+              setEditDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Load Balancer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {lbToDelete?.name}? This action cannot be undone
+              and will remove all associated listeners and backend configurations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteLB}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Load Balancer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

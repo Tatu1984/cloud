@@ -14,6 +14,7 @@ import {
   Copy,
   Filter,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -207,6 +218,11 @@ export default function SubnetsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [selectedSubnets, setSelectedSubnets] = useState<string[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [routeTableDialogOpen, setRouteTableDialogOpen] = useState(false);
+  const [subnetForAction, setSubnetForAction] = useState<SubnetWithVPC | null>(null);
+  const { toast } = useToast();
 
   const filteredSubnets = mockSubnets.filter((subnet) => {
     const matchesSearch =
@@ -237,6 +253,40 @@ export default function SubnetsPage() {
   const totalPublic = mockSubnets.filter((s) => s.isPublic).length;
   const totalPrivate = mockSubnets.filter((s) => !s.isPublic).length;
   const totalAvailableIPs = mockSubnets.reduce((acc, s) => acc + s.availableIPs, 0);
+
+  const handleEditSubnet = (subnet: SubnetWithVPC) => {
+    setSubnetForAction(subnet);
+    setEditDialogOpen(true);
+  };
+
+  const handleCopyCIDR = (subnet: SubnetWithVPC) => {
+    navigator.clipboard.writeText(subnet.cidr);
+    toast({
+      title: "CIDR Copied",
+      description: `${subnet.cidr} has been copied to clipboard.`,
+    });
+  };
+
+  const handleRouteTable = (subnet: SubnetWithVPC) => {
+    setSubnetForAction(subnet);
+    setRouteTableDialogOpen(true);
+  };
+
+  const openDeleteDialog = (subnet: SubnetWithVPC) => {
+    setSubnetForAction(subnet);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSubnet = () => {
+    if (!subnetForAction) return;
+    toast({
+      title: "Subnet Deleted",
+      description: `${subnetForAction.name} has been deleted successfully.`,
+      variant: "destructive",
+    });
+    setDeleteDialogOpen(false);
+    setSubnetForAction(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -518,20 +568,23 @@ export default function SubnetsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleEditSubnet(subnet)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Subnet
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleCopyCIDR(subnet)}>
                           <Copy className="mr-2 h-4 w-4" />
                           Copy CIDR
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleRouteTable(subnet)}>
                           <Network className="mr-2 h-4 w-4" />
                           Route Table
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => openDeleteDialog(subnet)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete Subnet
                         </DropdownMenuItem>
@@ -561,6 +614,126 @@ export default function SubnetsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Subnet Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Subnet</DialogTitle>
+            <DialogDescription>
+              Update settings for {subnetForAction?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-subnet-name">Subnet Name</Label>
+              <Input id="edit-subnet-name" defaultValue={subnetForAction?.name} />
+            </div>
+            <div className="grid gap-2">
+              <Label>CIDR Block</Label>
+              <Input value={subnetForAction?.cidr} disabled />
+              <p className="text-xs text-muted-foreground">
+                CIDR block cannot be changed after creation
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="edit-is-public" defaultChecked={subnetForAction?.isPublic} />
+              <Label htmlFor="edit-is-public" className="text-sm font-normal">
+                Public subnet (auto-assign public IPs to instances)
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Subnet Updated",
+                description: `${subnetForAction?.name} has been updated successfully.`,
+              });
+              setEditDialogOpen(false);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Route Table Dialog */}
+      <Dialog open={routeTableDialogOpen} onOpenChange={setRouteTableDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Route Table</DialogTitle>
+            <DialogDescription>
+              Route table configuration for {subnetForAction?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Associated Route Table</p>
+                    <p className="text-sm text-muted-foreground">
+                      {subnetForAction?.routeTableId}
+                    </p>
+                  </div>
+                  <Badge variant="outline">Active</Badge>
+                </div>
+              </div>
+              {subnetForAction?.natGatewayId && (
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">NAT Gateway</p>
+                      <p className="text-sm text-muted-foreground">
+                        {subnetForAction.natGatewayId}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">Configured</Badge>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRouteTableDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              toast({
+                title: "Edit Route Table",
+                description: "Opening route table editor...",
+              });
+            }}>
+              Edit Routes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subnet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {subnetForAction?.name}? This action cannot be undone.
+              Make sure no resources are using this subnet before deleting.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSubnet}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Subnet
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

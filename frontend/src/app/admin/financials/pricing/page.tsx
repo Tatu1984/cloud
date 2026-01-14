@@ -50,6 +50,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -59,6 +69,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 // Mock pricing data
@@ -112,7 +123,45 @@ const discounts = [
 ];
 
 export default function PricingPage() {
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
+  const [priceHistoryDialogOpen, setPriceHistoryDialogOpen] = useState(false);
+  const [disableSkuDialogOpen, setDisableSkuDialogOpen] = useState(false);
+  const [selectedSku, setSelectedSku] = useState<{ sku: string; name: string } | null>(null);
+
+  const handleEditPrice = (sku: string, name: string) => {
+    setSelectedSku({ sku, name });
+    setEditPriceDialogOpen(true);
+  };
+
+  const handleViewHistory = (sku: string, name: string) => {
+    setSelectedSku({ sku, name });
+    setPriceHistoryDialogOpen(true);
+  };
+
+  const handleDisableSku = (sku: string, name: string) => {
+    setSelectedSku({ sku, name });
+    setDisableSkuDialogOpen(true);
+  };
+
+  const confirmDisableSku = () => {
+    toast({
+      title: "SKU Disabled",
+      description: `${selectedSku?.sku} has been disabled successfully.`,
+    });
+    setDisableSkuDialogOpen(false);
+    setSelectedSku(null);
+  };
+
+  const savePrice = () => {
+    toast({
+      title: "Price Updated",
+      description: `Pricing for ${selectedSku?.sku} has been updated.`,
+    });
+    setEditPriceDialogOpen(false);
+    setSelectedSku(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -281,13 +330,15 @@ export default function PricingPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEditPrice(item.sku, item.name)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Price
                             </DropdownMenuItem>
-                            <DropdownMenuItem>View History</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleViewHistory(item.sku, item.name)}>
+                              View History
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDisableSku(item.sku, item.name)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Disable SKU
                             </DropdownMenuItem>
@@ -461,6 +512,103 @@ export default function PricingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Price Dialog */}
+      <Dialog open={editPriceDialogOpen} onOpenChange={setEditPriceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Price</DialogTitle>
+            <DialogDescription>
+              Update pricing for {selectedSku?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>SKU</Label>
+              <Input value={selectedSku?.sku || ""} disabled />
+            </div>
+            <div className="grid gap-2">
+              <Label>Hourly Price (USD)</Label>
+              <Input type="number" step="0.001" placeholder="0.048" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Monthly Price (USD)</Label>
+              <Input type="number" step="0.01" placeholder="34.56" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Effective Date</Label>
+              <Input type="date" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPriceDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={savePrice}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Price History Dialog */}
+      <Dialog open={priceHistoryDialogOpen} onOpenChange={setPriceHistoryDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Price History</DialogTitle>
+            <DialogDescription>
+              Historical pricing for {selectedSku?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Effective Date</TableHead>
+                  <TableHead>Hourly</TableHead>
+                  <TableHead>Monthly</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Mar 1, 2024</TableCell>
+                  <TableCell>$0.048</TableCell>
+                  <TableCell>$34.56</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Jan 1, 2024</TableCell>
+                  <TableCell>$0.045</TableCell>
+                  <TableCell>$32.40</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Oct 1, 2023</TableCell>
+                  <TableCell>$0.042</TableCell>
+                  <TableCell>$30.24</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPriceHistoryDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable SKU Confirmation */}
+      <AlertDialog open={disableSkuDialogOpen} onOpenChange={setDisableSkuDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable SKU</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disable {selectedSku?.sku}? This will prevent new resources from being provisioned with this SKU. Existing resources will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDisableSku}>Disable SKU</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

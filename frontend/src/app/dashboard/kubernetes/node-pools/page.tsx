@@ -21,6 +21,7 @@ import {
   Loader2,
   Layers,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +40,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -291,8 +302,11 @@ export default function NodePoolsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [poolToDelete, setPoolToDelete] = useState<ExtendedNodePool | null>(null);
   const [selectedPool, setSelectedPool] = useState<ExtendedNodePool | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<string>("all");
+  const { toast } = useToast();
 
   // Form state for create/edit
   const [formData, setFormData] = useState({
@@ -397,16 +411,36 @@ export default function NodePoolsPage() {
     setSelectedPool(null);
   };
 
-  const handleDeletePool = (poolId: string) => {
+  const handleDeletePool = () => {
+    if (!poolToDelete) return;
     setNodePools(
       nodePools.map((np) =>
-        np.id === poolId ? { ...np, status: "deleting" as const } : np
+        np.id === poolToDelete.id ? { ...np, status: "deleting" as const } : np
       )
     );
+    toast({
+      title: "Deleting Node Pool",
+      description: `${poolToDelete.name} is being deleted...`,
+      variant: "destructive",
+    });
     // Simulate deletion
     setTimeout(() => {
-      setNodePools((prev) => prev.filter((np) => np.id !== poolId));
+      setNodePools((prev) => prev.filter((np) => np.id !== poolToDelete.id));
     }, 2000);
+    setDeleteDialogOpen(false);
+    setPoolToDelete(null);
+  };
+
+  const openDeleteDialog = (pool: ExtendedNodePool) => {
+    setPoolToDelete(pool);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleUpgradeNodes = (pool: ExtendedNodePool) => {
+    toast({
+      title: "Upgrade Initiated",
+      description: `Upgrading nodes in ${pool.name} to the latest version...`,
+    });
   };
 
   const openEditDialog = (pool: ExtendedNodePool) => {
@@ -855,26 +889,29 @@ export default function NodePoolsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => openScaleDialog(pool)}
+                              onSelect={() => openScaleDialog(pool)}
                               disabled={pool.status !== "active"}
                             >
                               <TrendingUp className="mr-2 h-4 w-4" />
                               Scale
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => openEditDialog(pool)}
+                              onSelect={() => openEditDialog(pool)}
                             >
                               <Settings className="mr-2 h-4 w-4" />
                               Edit Settings
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handleUpgradeNodes(pool)}
+                              disabled={pool.status !== "active"}
+                            >
                               <RefreshCw className="mr-2 h-4 w-4" />
                               Upgrade Nodes
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDeletePool(pool.id)}
+                              onSelect={() => openDeleteDialog(pool)}
                               disabled={pool.status === "deleting"}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -1045,6 +1082,28 @@ export default function NodePoolsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Node Pool</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {poolToDelete?.name}? This action cannot be undone.
+              All nodes in this pool will be drained and terminated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePool}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Node Pool
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

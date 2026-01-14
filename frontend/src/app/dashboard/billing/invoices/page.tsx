@@ -52,6 +52,7 @@ import {
   Building2,
   Mail,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock invoice data
 const mockInvoices = [
@@ -167,6 +168,7 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function InvoicesPage() {
+  const { toast } = useToast();
   const [selectedInvoice, setSelectedInvoice] = useState<typeof currentCharges | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -190,6 +192,20 @@ export default function InvoicesPage() {
       status: invoice.status,
       period: invoice.period,
       total: invoice.amount,
+    });
+  };
+
+  const handleDownloadPDF = (invoiceId: string) => {
+    toast({
+      title: "Downloading Invoice",
+      description: `Preparing PDF for ${invoiceId}`,
+    });
+  };
+
+  const handleEmailInvoice = (invoiceId: string) => {
+    toast({
+      title: "Email Sent",
+      description: `Invoice ${invoiceId} has been sent to your email`,
     });
   };
 
@@ -403,11 +419,11 @@ export default function InvoicesPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleDownloadPDF(invoice.id)}>
                               <Download className="mr-2 h-4 w-4" />
                               Download PDF
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleEmailInvoice(invoice.id)}>
                               <Mail className="mr-2 h-4 w-4" />
                               Email Invoice
                             </DropdownMenuItem>
