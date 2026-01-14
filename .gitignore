@@ -1,6 +1,3 @@
-# Backend (separate repo)
-backend/
-
 # OS files
 .DS_Store
 Thumbs.db
