@@ -14,6 +14,8 @@ import {
   XCircle,
   Settings,
   RefreshCw,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,9 +48,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { mockProxmoxClusters } from "@/stores/mock-data";
-import { format } from "date-fns";
+import { mockProxmoxClusters, ProxmoxCluster } from "@/stores/mock-data";
+import { useToast } from "@/hooks/use-toast";
 
 const statusConfig = {
   healthy: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
@@ -57,8 +78,22 @@ const statusConfig = {
 };
 
 export default function ClustersPage() {
+  const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState("all");
   const [datacenterFilter, setDatacenterFilter] = useState("all");
+  const [clusterForDetails, setClusterForDetails] = useState<ProxmoxCluster | null>(null);
+  const [clusterToRemove, setClusterToRemove] = useState<ProxmoxCluster | null>(null);
+  const [isSyncing, setIsSyncing] = useState<string | null>(null);
+
+  const handleSync = async (clusterId: string) => {
+    setIsSyncing(clusterId);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsSyncing(null);
+    toast({
+      title: "Sync Complete",
+      description: "Cluster status has been synchronized",
+    });
+  };
 
   const filteredClusters = mockProxmoxClusters.filter((cluster) => {
     const matchesStatus = statusFilter === "all" || cluster.status === statusFilter;
@@ -284,24 +319,25 @@ export default function ClustersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Activity className="mr-2 h-4 w-4" />
+                          <DropdownMenuItem onSelect={() => setClusterForDetails(cluster)}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => window.location.href = `/admin/infrastructure/nodes?cluster=${cluster.id}`}>
                             <Server className="mr-2 h-4 w-4" />
                             Manage Nodes
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Configure", description: `Opening configuration for ${cluster.name}` })}>
                             <Settings className="mr-2 h-4 w-4" />
                             Configure
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Sync Status
+                          <DropdownMenuItem onSelect={() => handleSync(cluster.id)} disabled={isSyncing === cluster.id}>
+                            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing === cluster.id ? "animate-spin" : ""}`} />
+                            {isSyncing === cluster.id ? "Syncing..." : "Sync Status"}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onSelect={() => setClusterToRemove(cluster)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
                             Remove Cluster
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -314,6 +350,116 @@ export default function ClustersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={!!clusterForDetails} onOpenChange={() => setClusterForDetails(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{clusterForDetails?.name}</DialogTitle>
+            <DialogDescription>
+              Proxmox VE {clusterForDetails?.version} - {clusterForDetails?.datacenterName}
+            </DialogDescription>
+          </DialogHeader>
+          {clusterForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        clusterForDetails.status === "healthy"
+                          ? "default"
+                          : clusterForDetails.status === "degraded"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                    >
+                      {clusterForDetails.status}
+                    </Badge>
+                    {clusterForDetails.quorum && (
+                      <Badge variant="outline">Quorum</Badge>
+                    )}
+                    {clusterForDetails.ha && (
+                      <Badge variant="outline">HA</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Nodes</Label>
+                  <p className="font-medium">{clusterForDetails.nodeCount}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">VMs</Label>
+                  <p className="font-medium">{clusterForDetails.runningVMs}/{clusterForDetails.totalVMs} running</p>
+                </div>
+              </div>
+              <div className="space-y-3 pt-4 border-t">
+                <h4 className="font-medium">Resource Utilization</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>CPU</span>
+                    <span className="font-medium">{clusterForDetails.usedCpu}/{clusterForDetails.totalCpu} cores</span>
+                  </div>
+                  <Progress value={(clusterForDetails.usedCpu / clusterForDetails.totalCpu) * 100} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Memory</span>
+                    <span className="font-medium">{Math.round(clusterForDetails.usedMemory / 1024)}/{Math.round(clusterForDetails.totalMemory / 1024)} TB</span>
+                  </div>
+                  <Progress value={(clusterForDetails.usedMemory / clusterForDetails.totalMemory) * 100} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Storage</span>
+                    <span className="font-medium">{Math.round(clusterForDetails.usedStorage / 1000)}/{Math.round(clusterForDetails.totalStorage / 1000)} TB</span>
+                  </div>
+                  <Progress value={(clusterForDetails.usedStorage / clusterForDetails.totalStorage) * 100} />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClusterForDetails(null)}>
+              Close
+            </Button>
+            <Button onClick={() => window.location.href = `/admin/infrastructure/nodes?cluster=${clusterForDetails?.id}`}>
+              <Server className="mr-2 h-4 w-4" />
+              Manage Nodes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Cluster Confirmation */}
+      <AlertDialog open={!!clusterToRemove} onOpenChange={() => setClusterToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Cluster?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{clusterToRemove?.name}</strong> from management?
+              This will not delete the actual Proxmox cluster, but will remove it from this dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Cluster Removed",
+                  description: `${clusterToRemove?.name} has been removed from management`,
+                  variant: "destructive",
+                });
+                setClusterToRemove(null);
+              }}
+            >
+              Remove Cluster
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

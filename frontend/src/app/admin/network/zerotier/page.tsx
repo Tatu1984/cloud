@@ -53,7 +53,41 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, Trash2, Edit, Globe as GlobeIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface ZeroTierNetwork {
+  id: string;
+  name: string;
+  description: string;
+  cidr: string;
+  memberCount: number;
+  onlineMembers: number;
+  private: boolean;
+  flowRules: number;
+  createdAt: string;
+}
+
+interface ZeroTierMember {
+  id: string;
+  name: string;
+  networkId: string;
+  ipAddress: string | null;
+  status: string;
+  authorized: boolean;
+  lastSeen: string;
+  version: string;
+}
 
 // Mock ZeroTier networks
 const mockZeroTierNetworks = [
@@ -168,9 +202,29 @@ const mockZeroTierMembers = [
 ];
 
 export default function ZeroTierPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [networkForConfig, setNetworkForConfig] = useState<ZeroTierNetwork | null>(null);
+  const [networkToDelete, setNetworkToDelete] = useState<ZeroTierNetwork | null>(null);
+  const [memberForEdit, setMemberForEdit] = useState<ZeroTierMember | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<ZeroTierMember | null>(null);
+  const [memberName, setMemberName] = useState("");
+  const [memberIP, setMemberIP] = useState("");
+
+  const handleAuthorize = (member: ZeroTierMember) => {
+    toast({
+      title: "Member Authorized",
+      description: `${member.name} has been authorized to join the network`,
+    });
+  };
+
+  const handleEditMember = (member: ZeroTierMember) => {
+    setMemberForEdit(member);
+    setMemberName(member.name);
+    setMemberIP(member.ipAddress || "");
+  };
 
   const filteredMembers = mockZeroTierMembers.filter((member) => {
     const matchesSearch =
@@ -314,14 +368,21 @@ export default function ZeroTierPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setNetworkForConfig(network)}>
                           <Settings className="mr-2 h-4 w-4" />
                           Configure
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Flow Rules</DropdownMenuItem>
-                        <DropdownMenuItem>View Members</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => toast({ title: "Flow Rules", description: `Managing flow rules for ${network.name}` })}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Flow Rules
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setSelectedNetwork(network.id)}>
+                          <Users className="mr-2 h-4 w-4" />
+                          View Members
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onSelect={() => setNetworkToDelete(network)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
                           Delete Network
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -467,15 +528,22 @@ export default function ZeroTierPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {!member.authorized && (
-                                <DropdownMenuItem className="text-green-600">
+                                <DropdownMenuItem className="text-green-600" onSelect={() => handleAuthorize(member)}>
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Authorize
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem>Edit Name</DropdownMenuItem>
-                              <DropdownMenuItem>Assign IP</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEditMember(member)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Name
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEditMember(member)}>
+                                <GlobeIcon className="mr-2 h-4 w-4" />
+                                Assign IP
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onSelect={() => setMemberToRemove(member)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
                                 Remove Member
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -490,6 +558,145 @@ export default function ZeroTierPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Network Config Dialog */}
+      <Dialog open={!!networkForConfig} onOpenChange={() => setNetworkForConfig(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Network</DialogTitle>
+            <DialogDescription>{networkForConfig?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Network ID</Label>
+              <code className="block px-3 py-2 bg-muted rounded text-sm font-mono">
+                {networkForConfig?.id}
+              </code>
+            </div>
+            <div className="space-y-2">
+              <Label>IP Range</Label>
+              <Input defaultValue={networkForConfig?.cidr} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Private Network</Label>
+                <p className="text-xs text-muted-foreground">Require authorization for new members</p>
+              </div>
+              <Switch defaultChecked={networkForConfig?.private} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNetworkForConfig(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Network Updated", description: `${networkForConfig?.name} configuration saved` });
+              setNetworkForConfig(null);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Network Confirmation */}
+      <AlertDialog open={!!networkToDelete} onOpenChange={() => setNetworkToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Network?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{networkToDelete?.name}</strong>?
+              This will disconnect all {networkToDelete?.memberCount} members.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Network Deleted",
+                  description: `${networkToDelete?.name} has been deleted`,
+                  variant: "destructive",
+                });
+                setNetworkToDelete(null);
+              }}
+            >
+              Delete Network
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={!!memberForEdit} onOpenChange={() => setMemberForEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Member</DialogTitle>
+            <DialogDescription>
+              Device ID: {memberForEdit?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="member-name">Device Name</Label>
+              <Input
+                id="member-name"
+                value={memberName}
+                onChange={(e) => setMemberName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-ip">Assigned IP</Label>
+              <Input
+                id="member-ip"
+                value={memberIP}
+                onChange={(e) => setMemberIP(e.target.value)}
+                placeholder="Auto-assign if empty"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMemberForEdit(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Member Updated", description: `${memberName} has been updated` });
+              setMemberForEdit(null);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation */}
+      <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from the network?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Member Removed",
+                  description: `${memberToRemove?.name} has been removed`,
+                  variant: "destructive",
+                });
+                setMemberToRemove(null);
+              }}
+            >
+              Remove Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

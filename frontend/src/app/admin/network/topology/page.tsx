@@ -10,8 +10,6 @@ import {
   RefreshCw,
   Eye,
   Settings,
-  AlertTriangle,
-  CheckCircle,
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,11 +28,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { mockDatacenters } from "@/stores/mock-data";
+import { useToast } from "@/hooks/use-toast";
+
+interface NetworkDevice {
+  id: string;
+  name: string;
+  type: string;
+  model: string;
+  datacenter: string;
+  status: string;
+  ports: number;
+  activePorts: number;
+  throughput: number;
+  uptime: number;
+}
+
+interface VLAN {
+  id: number;
+  name: string;
+  cidr: string;
+  devices: number;
+  status: string;
+}
 
 // Mock network topology data
-const networkDevices = [
+const networkDevices: NetworkDevice[] = [
   {
     id: "sw-core-01",
     name: "Core Switch 01",
@@ -105,7 +135,7 @@ const networkLinks = [
   { source: "sw-core-01", target: "lb-public-01", bandwidth: 100, utilization: 28 },
 ];
 
-const vlans = [
+const vlans: VLAN[] = [
   { id: 100, name: "Management", cidr: "10.0.100.0/24", devices: 48, status: "active" },
   { id: 200, name: "Production VMs", cidr: "10.0.200.0/22", devices: 342, status: "active" },
   { id: 300, name: "Storage Network", cidr: "10.0.300.0/24", devices: 24, status: "active" },
@@ -114,8 +144,26 @@ const vlans = [
   { id: 999, name: "Quarantine", cidr: "10.99.0.0/24", devices: 0, status: "inactive" },
 ];
 
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return `${days}d ${hours}h`;
+}
+
 export default function TopologyPage() {
+  const { toast } = useToast();
   const [selectedDatacenter, setSelectedDatacenter] = useState("all");
+  const [deviceForDetails, setDeviceForDetails] = useState<NetworkDevice | null>(null);
+  const [deviceForConfig, setDeviceForConfig] = useState<NetworkDevice | null>(null);
+  const [vlanForConfig, setVlanForConfig] = useState<VLAN | null>(null);
+  const [vlanName, setVlanName] = useState("");
+  const [vlanCidr, setVlanCidr] = useState("");
+
+  const handleVlanConfig = (vlan: VLAN) => {
+    setVlanForConfig(vlan);
+    setVlanName(vlan.name);
+    setVlanCidr(vlan.cidr);
+  };
 
   return (
     <div className="space-y-6">
@@ -127,11 +175,11 @@ export default function TopologyPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => toast({ title: "Refreshing", description: "Network topology data refreshed" })}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => toast({ title: "Visual Map", description: "Visual map feature coming soon" })}>
             <Eye className="mr-2 h-4 w-4" />
             Visual Map
           </Button>
@@ -255,11 +303,11 @@ export default function TopologyPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setDeviceForDetails(device)}>
                       <Eye className="mr-2 h-3 w-3" />
                       Details
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setDeviceForConfig(device)}>
                       <Settings className="mr-2 h-3 w-3" />
                       Configure
                     </Button>
@@ -304,7 +352,7 @@ export default function TopologyPage() {
                       <Badge variant={vlan.status === "active" ? "default" : "secondary"}>
                         {vlan.status}
                       </Badge>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" onClick={() => handleVlanConfig(vlan)}>
                         <Settings className="h-4 w-4" />
                       </Button>
                     </div>
@@ -367,6 +415,133 @@ export default function TopologyPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Device Details Dialog */}
+      <Dialog open={!!deviceForDetails} onOpenChange={() => setDeviceForDetails(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{deviceForDetails?.name}</DialogTitle>
+            <DialogDescription>{deviceForDetails?.model}</DialogDescription>
+          </DialogHeader>
+          {deviceForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Type</Label>
+                  <p className="font-medium capitalize">{deviceForDetails.type}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge variant={deviceForDetails.status === "online" ? "default" : "destructive"}>
+                    {deviceForDetails.status}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Datacenter</Label>
+                  <p className="font-medium">{deviceForDetails.datacenter}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Uptime</Label>
+                  <p className="font-medium">{formatUptime(deviceForDetails.uptime)}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Ports</Label>
+                  <p className="font-medium">{deviceForDetails.activePorts}/{deviceForDetails.ports} active</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Throughput</Label>
+                  <p className="font-medium">{deviceForDetails.throughput} Gbps</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeviceForDetails(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Device Config Dialog */}
+      <Dialog open={!!deviceForConfig} onOpenChange={() => setDeviceForConfig(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure {deviceForConfig?.name}</DialogTitle>
+            <DialogDescription>
+              Device configuration options
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border p-4 bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                Configuration for {deviceForConfig?.model} would typically be done through the device's native management interface.
+                This panel can be extended to support common configuration options.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Device IP/Hostname</Label>
+              <Input value={deviceForConfig?.id || ""} readOnly />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeviceForConfig(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Configuration Saved", description: `${deviceForConfig?.name} configuration updated` });
+              setDeviceForConfig(null);
+            }}>
+              Save Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* VLAN Config Dialog */}
+      <Dialog open={!!vlanForConfig} onOpenChange={() => setVlanForConfig(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure VLAN {vlanForConfig?.id}</DialogTitle>
+            <DialogDescription>
+              Edit VLAN settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="vlan-name">VLAN Name</Label>
+              <Input
+                id="vlan-name"
+                value={vlanName}
+                onChange={(e) => setVlanName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vlan-cidr">CIDR</Label>
+              <Input
+                id="vlan-cidr"
+                value={vlanCidr}
+                onChange={(e) => setVlanCidr(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Connected Devices</Label>
+              <p className="font-medium">{vlanForConfig?.devices}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVlanForConfig(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "VLAN Updated", description: `VLAN ${vlanForConfig?.id} configuration saved` });
+              setVlanForConfig(null);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

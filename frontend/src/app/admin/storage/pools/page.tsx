@@ -54,7 +54,36 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Search } from "lucide-react";
+import { Search, BarChart3 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+
+interface StoragePool {
+  id: string;
+  name: string;
+  cluster: string;
+  type: string;
+  size: number;
+  minSize: number;
+  pgNum: number;
+  totalCapacity: number;
+  usedCapacity: number;
+  objects: number;
+  application: string;
+  crushRule: string;
+  compression: string;
+  quotaMaxBytes: number;
+  quotaMaxObjects: number;
+}
 
 // Mock storage pools
 const mockStoragePools = [
@@ -171,9 +200,15 @@ const applicationColors = {
 };
 
 export default function PoolsPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [clusterFilter, setClusterFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [poolForEdit, setPoolForEdit] = useState<StoragePool | null>(null);
+  const [poolForQuota, setPoolForQuota] = useState<StoragePool | null>(null);
+  const [poolToDelete, setPoolToDelete] = useState<StoragePool | null>(null);
+  const [quotaBytes, setQuotaBytes] = useState("");
+  const [quotaObjects, setQuotaObjects] = useState("");
 
   const filteredPools = mockStoragePools.filter((pool) => {
     const matchesSearch = pool.name.toLowerCase().includes(search.toLowerCase());
@@ -421,17 +456,20 @@ export default function PoolsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setPoolForEdit(pool)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Pool
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => { setPoolForQuota(pool); setQuotaBytes(pool.quotaMaxBytes > 0 ? String(pool.quotaMaxBytes / 1000000000) : ""); setQuotaObjects(pool.quotaMaxObjects > 0 ? String(pool.quotaMaxObjects) : ""); }}>
                             <Settings className="mr-2 h-4 w-4" />
                             Set Quota
                           </DropdownMenuItem>
-                          <DropdownMenuItem>View Statistics</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Pool Statistics", description: `${pool.name}: ${pool.objects} objects, ${(pool.usedCapacity / 1000).toFixed(0)} TB used` })}>
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            View Statistics
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onSelect={() => setPoolToDelete(pool)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete Pool
                           </DropdownMenuItem>
@@ -445,6 +483,144 @@ export default function PoolsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Pool Dialog */}
+      <Dialog open={!!poolForEdit} onOpenChange={() => setPoolForEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Pool</DialogTitle>
+            <DialogDescription>{poolForEdit?.name}</DialogDescription>
+          </DialogHeader>
+          {poolForEdit && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Type</Label>
+                  <p className="font-medium capitalize">{poolForEdit.type}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Application</Label>
+                  <Badge>{poolForEdit.application}</Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pool-size">Replication Size</Label>
+                  <Input id="pool-size" type="number" defaultValue={poolForEdit.size} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pool-pg">PG Count</Label>
+                  <Input id="pool-pg" type="number" defaultValue={poolForEdit.pgNum} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Compression</Label>
+                <Select defaultValue={poolForEdit.compression}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="lz4">LZ4</SelectItem>
+                    <SelectItem value="zstd">ZSTD</SelectItem>
+                    <SelectItem value="snappy">Snappy</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPoolForEdit(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Pool Updated", description: `${poolForEdit?.name} configuration saved` });
+              setPoolForEdit(null);
+            }}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Quota Dialog */}
+      <Dialog open={!!poolForQuota} onOpenChange={() => setPoolForQuota(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Pool Quota</DialogTitle>
+            <DialogDescription>{poolForQuota?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quota-bytes">Max Size (GB)</Label>
+              <Input
+                id="quota-bytes"
+                type="number"
+                placeholder="0 = unlimited"
+                value={quotaBytes}
+                onChange={(e) => setQuotaBytes(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quota-objects">Max Objects</Label>
+              <Input
+                id="quota-objects"
+                type="number"
+                placeholder="0 = unlimited"
+                value={quotaObjects}
+                onChange={(e) => setQuotaObjects(e.target.value)}
+              />
+            </div>
+            <div className="rounded-lg border p-3 bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                Setting quotas will prevent the pool from exceeding the specified limits.
+                Leave empty or set to 0 for unlimited.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPoolForQuota(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Quota Set", description: `Quota updated for ${poolForQuota?.name}` });
+              setPoolForQuota(null);
+            }}>
+              Apply Quota
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Pool Confirmation */}
+      <AlertDialog open={!!poolToDelete} onOpenChange={() => setPoolToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Pool?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{poolToDelete?.name}</strong>?
+              This will permanently delete all {poolToDelete?.objects} objects in this pool.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Pool Deleted",
+                  description: `${poolToDelete?.name} has been deleted`,
+                  variant: "destructive",
+                });
+                setPoolToDelete(null);
+              }}
+            >
+              Delete Pool
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

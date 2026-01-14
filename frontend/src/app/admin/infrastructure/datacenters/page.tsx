@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, MoreHorizontal, Server, Activity, Cpu, MemoryStick, HardDrive, Wifi } from "lucide-react";
+import { useState } from "react";
+import { Plus, MoreHorizontal, Server, Activity, Cpu, MemoryStick, HardDrive, Wifi, Calendar, ExternalLink, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,15 +18,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { mockDatacenters } from "@/stores/mock-data";
+import { mockDatacenters, Datacenter } from "@/stores/mock-data";
 import {
   ChartConfig,
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Area, AreaChart, XAxis, YAxis } from "recharts";
+import { Area, AreaChart } from "recharts";
 
 const chartConfig = {
   cpu: { label: "CPU", color: "hsl(var(--chart-1))" },
@@ -42,6 +51,11 @@ const generateUsageData = () => {
 };
 
 export default function DatacentersPage() {
+  const [dcForDetails, setDcForDetails] = useState<Datacenter | null>(null);
+  const [dcForMaintenance, setDcForMaintenance] = useState<Datacenter | null>(null);
+  const [maintenanceDate, setMaintenanceDate] = useState("");
+  const [maintenanceReason, setMaintenanceReason] = useState("");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -146,11 +160,23 @@ export default function DatacentersPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Details</DropdownMenuItem>
-                    <DropdownMenuItem>Manage Clusters</DropdownMenuItem>
-                    <DropdownMenuItem>Network Topology</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDcForDetails(dc)}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => window.location.href = `/admin/infrastructure/clusters?dc=${dc.id}`}>
+                      <Server className="mr-2 h-4 w-4" />
+                      Manage Clusters
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => window.location.href = `/admin/network/topology?dc=${dc.id}`}>
+                      <Network className="mr-2 h-4 w-4" />
+                      Network Topology
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>Schedule Maintenance</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDcForMaintenance(dc)}>
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Schedule Maintenance
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardHeader>
@@ -234,11 +260,11 @@ export default function DatacentersPage() {
 
                 {/* Quick Actions */}
                 <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => window.location.href = `/admin/network/topology?dc=${dc.id}`}>
                     <Wifi className="mr-2 h-4 w-4" />
                     Network
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => window.location.href = `/admin/infrastructure/clusters?dc=${dc.id}`}>
                     <Server className="mr-2 h-4 w-4" />
                     Clusters
                   </Button>
@@ -248,6 +274,131 @@ export default function DatacentersPage() {
           );
         })}
       </div>
+
+      {/* View Details Dialog */}
+      <Dialog open={!!dcForDetails} onOpenChange={() => setDcForDetails(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{dcForDetails?.name} Details</DialogTitle>
+            <DialogDescription>
+              {dcForDetails?.location} ({dcForDetails?.region})
+            </DialogDescription>
+          </DialogHeader>
+          {dcForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div>
+                    <Badge
+                      variant={
+                        dcForDetails.status === "online"
+                          ? "default"
+                          : dcForDetails.status === "maintenance"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                    >
+                      {dcForDetails.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Region</Label>
+                  <p className="font-medium">{dcForDetails.region}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Total Nodes</Label>
+                  <p className="font-medium">{dcForDetails.totalNodes}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Total VMs</Label>
+                  <p className="font-medium">{dcForDetails.totalVMs}</p>
+                </div>
+              </div>
+              <div className="space-y-3 pt-4 border-t">
+                <h4 className="font-medium">Resource Utilization</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>CPU Usage</span>
+                    <span className="font-medium">{dcForDetails.cpuUsage}%</span>
+                  </div>
+                  <Progress value={dcForDetails.cpuUsage} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Memory Usage</span>
+                    <span className="font-medium">{dcForDetails.memoryUsage}%</span>
+                  </div>
+                  <Progress value={dcForDetails.memoryUsage} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Storage Usage</span>
+                    <span className="font-medium">{dcForDetails.storageUsage}%</span>
+                  </div>
+                  <Progress value={dcForDetails.storageUsage} />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDcForDetails(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Maintenance Dialog */}
+      <Dialog open={!!dcForMaintenance} onOpenChange={() => setDcForMaintenance(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Maintenance</DialogTitle>
+            <DialogDescription>
+              Schedule maintenance window for {dcForMaintenance?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="maintenance-date">Maintenance Date & Time</Label>
+              <Input
+                id="maintenance-date"
+                type="datetime-local"
+                value={maintenanceDate}
+                onChange={(e) => setMaintenanceDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maintenance-reason">Reason</Label>
+              <Input
+                id="maintenance-reason"
+                placeholder="e.g., Hardware upgrade, Firmware update"
+                value={maintenanceReason}
+                onChange={(e) => setMaintenanceReason(e.target.value)}
+              />
+            </div>
+            <div className="rounded-lg border p-3 bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> Scheduling maintenance will notify all affected tenants
+                and prevent new VM deployments during the maintenance window.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDcForMaintenance(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setDcForMaintenance(null);
+              setMaintenanceDate("");
+              setMaintenanceReason("");
+            }}>
+              Schedule Maintenance
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -53,6 +53,30 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format, differenceInDays } from "date-fns";
 import { Search } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+
+interface Certificate {
+  id: string;
+  name: string;
+  type: string;
+  issuer: string;
+  domains: string[];
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+  autoRenew: boolean;
+  algorithm: string;
+}
 
 // Mock certificates
 const mockCertificates = [
@@ -144,8 +168,11 @@ const typeConfig = {
 };
 
 export default function CertificatesPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [certForDetails, setCertForDetails] = useState<Certificate | null>(null);
+  const [certToDelete, setCertToDelete] = useState<Certificate | null>(null);
 
   const filteredCerts = mockCertificates.filter((cert) =>
     cert.name.toLowerCase().includes(search.toLowerCase())
@@ -358,20 +385,20 @@ export default function CertificatesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setCertForDetails(cert)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Download Started", description: `Downloading ${cert.name}` })}>
                             <Download className="mr-2 h-4 w-4" />
                             Download
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Renewal Initiated", description: `Renewing ${cert.name}` })}>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Renew Now
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onSelect={() => setCertToDelete(cert)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                           </DropdownMenuItem>
@@ -385,6 +412,112 @@ export default function CertificatesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Certificate Details Dialog */}
+      <Dialog open={!!certForDetails} onOpenChange={() => setCertForDetails(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{certForDetails?.name}</DialogTitle>
+            <DialogDescription>Certificate Details</DialogDescription>
+          </DialogHeader>
+          {certForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Type</Label>
+                  <Badge variant={typeConfig[certForDetails.type as keyof typeof typeConfig]?.color as any}>
+                    {typeConfig[certForDetails.type as keyof typeof typeConfig]?.label}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge variant={statusConfig[certForDetails.status as keyof typeof statusConfig]?.variant}>
+                    {certForDetails.status}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Issuer</Label>
+                  <p className="font-medium">{certForDetails.issuer}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Algorithm</Label>
+                  <p className="font-medium">{certForDetails.algorithm}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Created</Label>
+                  <p className="font-medium">{format(new Date(certForDetails.createdAt), "MMM d, yyyy")}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Expires</Label>
+                  <p className="font-medium">{format(new Date(certForDetails.expiresAt), "MMM d, yyyy")}</p>
+                </div>
+              </div>
+              {certForDetails.domains.length > 0 && (
+                <div className="space-y-2 pt-4 border-t">
+                  <Label className="text-muted-foreground">Domains</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {certForDetails.domains.map((domain) => (
+                      <Badge key={domain} variant="outline" className="font-mono">
+                        {domain}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div>
+                  <Label>Auto Renew</Label>
+                  <p className="text-sm text-muted-foreground">Automatically renew before expiry</p>
+                </div>
+                <Badge variant={certForDetails.autoRenew ? "default" : "outline"}>
+                  {certForDetails.autoRenew ? "Enabled" : "Disabled"}
+                </Badge>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCertForDetails(null)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "Download Started", description: `Downloading ${certForDetails?.name}` });
+              setCertForDetails(null);
+            }}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Certificate Confirmation */}
+      <AlertDialog open={!!certToDelete} onOpenChange={() => setCertToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Certificate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{certToDelete?.name}</strong>?
+              This may affect services using this certificate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "Certificate Deleted",
+                  description: `${certToDelete?.name} has been deleted`,
+                  variant: "destructive",
+                });
+                setCertToDelete(null);
+              }}
+            >
+              Delete Certificate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

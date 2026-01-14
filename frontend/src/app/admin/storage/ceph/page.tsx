@@ -40,6 +40,63 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+
+interface CephCluster {
+  id: string;
+  name: string;
+  datacenter: string;
+  status: string;
+  statusDetail?: string;
+  version: string;
+  mons: number;
+  mgrs: number;
+  osds: number;
+  osdsUp: number;
+  osdsIn: number;
+  pgs: number;
+  pgActive: number;
+  totalCapacity: number;
+  usedCapacity: number;
+  availableCapacity: number;
+  iops: number;
+  throughput: number;
+  pools: number;
+  objects: number;
+}
+
+interface OSD {
+  id: number;
+  name: string;
+  host: string;
+  status: string;
+  weight: number;
+  reweight: number;
+  size: number;
+  used: number;
+  utilization: number;
+  class: string;
+}
 
 // Mock Ceph clusters
 const cephClusters = [
@@ -125,7 +182,14 @@ const statusConfig = {
 };
 
 export default function CephPage() {
+  const { toast } = useToast();
   const [selectedCluster, setSelectedCluster] = useState(cephClusters[0].id);
+  const [clusterForConfig, setClusterForConfig] = useState<CephCluster | null>(null);
+  const [clusterForHealth, setClusterForHealth] = useState<CephCluster | null>(null);
+  const [osdForDetails, setOsdForDetails] = useState<OSD | null>(null);
+  const [osdForReweight, setOsdForReweight] = useState<OSD | null>(null);
+  const [osdToRemove, setOsdToRemove] = useState<OSD | null>(null);
+  const [reweightValue, setReweightValue] = useState("1.0");
 
   const totalCapacity = cephClusters.reduce((sum, c) => sum + c.totalCapacity, 0);
   const usedCapacity = cephClusters.reduce((sum, c) => sum + c.usedCapacity, 0);
@@ -244,14 +308,23 @@ export default function CephPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setClusterForConfig(cluster)}>
                             <Settings className="mr-2 h-4 w-4" />
                             Configure
                           </DropdownMenuItem>
-                          <DropdownMenuItem>View Dashboard</DropdownMenuItem>
-                          <DropdownMenuItem>Health Details</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Dashboard", description: `Opening dashboard for ${cluster.name}` })}>
+                            <Activity className="mr-2 h-4 w-4" />
+                            View Dashboard
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setClusterForHealth(cluster)}>
+                            <Gauge className="mr-2 h-4 w-4" />
+                            Health Details
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>Scrub All</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => toast({ title: "Scrub Started", description: `Initiated deep scrub on all OSDs in ${cluster.name}` })}>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Scrub All
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -348,11 +421,21 @@ export default function CephPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Reweight</DropdownMenuItem>
-                            <DropdownMenuItem>Mark Out</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setOsdForDetails(osd)}>
+                              <Activity className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { setOsdForReweight(osd); setReweightValue(osd.reweight.toString()); }}>
+                              <Settings className="mr-2 h-4 w-4" />
+                              Reweight
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => toast({ title: "OSD Marked Out", description: `${osd.name} has been marked out` })}>
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Mark Out
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onSelect={() => setOsdToRemove(osd)}>
+                              <AlertTriangle className="mr-2 h-4 w-4" />
                               Remove OSD
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -366,6 +449,206 @@ export default function CephPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Cluster Config Dialog */}
+      <Dialog open={!!clusterForConfig} onOpenChange={() => setClusterForConfig(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Cluster</DialogTitle>
+            <DialogDescription>{clusterForConfig?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Datacenter</Label>
+                <p className="font-medium">{clusterForConfig?.datacenter}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Version</Label>
+                <p className="font-medium">{clusterForConfig?.version}</p>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4 bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                Advanced configuration options would be available here. In production,
+                this would connect to the Ceph cluster for live configuration.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClusterForConfig(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cluster Health Dialog */}
+      <Dialog open={!!clusterForHealth} onOpenChange={() => setClusterForHealth(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{clusterForHealth?.name} Health</DialogTitle>
+            <DialogDescription>Detailed health status</DialogDescription>
+          </DialogHeader>
+          {clusterForHealth && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2">
+                {clusterForHealth.status === "HEALTH_OK" ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : clusterForHealth.status === "HEALTH_WARN" ? (
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+                <span className="font-medium text-lg">{clusterForHealth.status}</span>
+                {clusterForHealth.statusDetail && (
+                  <span className="text-muted-foreground">- {clusterForHealth.statusDetail}</span>
+                )}
+              </div>
+              <div className="grid grid-cols-4 gap-4 pt-4 border-t">
+                <div>
+                  <p className="text-sm text-muted-foreground">MONs</p>
+                  <p className="text-xl font-medium">{clusterForHealth.mons}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">MGRs</p>
+                  <p className="text-xl font-medium">{clusterForHealth.mgrs}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">OSDs</p>
+                  <p className="text-xl font-medium">{clusterForHealth.osdsUp}/{clusterForHealth.osds}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">PGs</p>
+                  <p className="text-xl font-medium">{clusterForHealth.pgActive}/{clusterForHealth.pgs}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClusterForHealth(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OSD Details Dialog */}
+      <Dialog open={!!osdForDetails} onOpenChange={() => setOsdForDetails(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{osdForDetails?.name}</DialogTitle>
+            <DialogDescription>OSD Details</DialogDescription>
+          </DialogHeader>
+          {osdForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Host</Label>
+                  <p className="font-medium">{osdForDetails.host}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge variant={osdForDetails.status === "up" ? "default" : "destructive"}>
+                    {osdForDetails.status}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Device Class</Label>
+                  <p className="font-medium uppercase">{osdForDetails.class}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Weight</Label>
+                  <p className="font-medium">{osdForDetails.weight.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="space-y-2 pt-4 border-t">
+                <Label className="text-muted-foreground">Utilization</Label>
+                <Progress value={osdForDetails.utilization} />
+                <p className="text-sm">
+                  {(osdForDetails.used / 1000).toFixed(1)} / {(osdForDetails.size / 1000).toFixed(1)} TB
+                  ({osdForDetails.utilization}%)
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOsdForDetails(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OSD Reweight Dialog */}
+      <Dialog open={!!osdForReweight} onOpenChange={() => setOsdForReweight(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reweight {osdForReweight?.name}</DialogTitle>
+            <DialogDescription>Adjust the CRUSH weight for this OSD</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reweight">Reweight Value (0.0 - 1.0)</Label>
+              <Input
+                id="reweight"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={reweightValue}
+                onChange={(e) => setReweightValue(e.target.value)}
+              />
+            </div>
+            <div className="rounded-lg border p-3 bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                Lowering the reweight will cause data to migrate away from this OSD.
+                Set to 0 to completely drain the OSD.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOsdForReweight(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast({ title: "OSD Reweighted", description: `${osdForReweight?.name} reweight set to ${reweightValue}` });
+              setOsdForReweight(null);
+            }}>
+              Apply Reweight
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove OSD Confirmation */}
+      <AlertDialog open={!!osdToRemove} onOpenChange={() => setOsdToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove OSD?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{osdToRemove?.name}</strong>?
+              This will begin data migration and permanently remove the OSD from the cluster.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast({
+                  title: "OSD Removal Started",
+                  description: `${osdToRemove?.name} is being removed from the cluster`,
+                  variant: "destructive",
+                });
+                setOsdToRemove(null);
+              }}
+            >
+              Remove OSD
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
