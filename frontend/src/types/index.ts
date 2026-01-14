@@ -250,9 +250,10 @@ export interface Database {
   vcpus: number;
   memory: number;
   storage: number;
-  endpoint?: string;
+  endpoint: string;
   region: string;
   createdAt: string;
+  highAvailability?: boolean;
 }
 
 // Billing Types

@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal, HardDrive, Link2 } from "lucide-react";
+import { Plus, MoreHorizontal, HardDrive, Link2, Loader2, Camera, Maximize2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -25,15 +28,124 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
 import { mockVolumes, mockVMs } from "@/stores/mock-data";
 import { useAuthStore } from "@/stores/auth-store";
+import { Volume } from "@/types";
 
 export default function VolumesPage() {
   const { currentProject } = useAuthStore();
+  const { toast } = useToast();
   const volumes = mockVolumes.filter((v) => v.projectId === currentProject?.id);
+  const projectVMs = mockVMs.filter((vm) => vm.projectId === currentProject?.id);
   const totalStorage = volumes.reduce((sum, v) => sum + v.size, 0);
   const usedStorage = volumes.filter((v) => v.status === "in-use").reduce((sum, v) => sum + v.size, 0);
+
+  const [isLoading, setIsLoading] = useState<string | null>(null);
+
+  // Dialog states
+  const [volumeToDelete, setVolumeToDelete] = useState<Volume | null>(null);
+  const [volumeToAttach, setVolumeToAttach] = useState<Volume | null>(null);
+  const [volumeToDetach, setVolumeToDetach] = useState<Volume | null>(null);
+  const [volumeToResize, setVolumeToResize] = useState<Volume | null>(null);
+  const [volumeToSnapshot, setVolumeToSnapshot] = useState<Volume | null>(null);
+
+  // Form states
+  const [selectedVMId, setSelectedVMId] = useState<string>("");
+  const [newSize, setNewSize] = useState<number>(0);
+  const [snapshotName, setSnapshotName] = useState("");
+
+  const handleAttach = async () => {
+    if (!volumeToAttach || !selectedVMId) return;
+    setIsLoading("attach");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoading(null);
+    const vm = projectVMs.find((v) => v.id === selectedVMId);
+    toast({
+      title: "Volume Attached",
+      description: `Volume "${volumeToAttach.name}" has been attached to ${vm?.name}`,
+    });
+    setVolumeToAttach(null);
+    setSelectedVMId("");
+  };
+
+  const handleDetach = async () => {
+    if (!volumeToDetach) return;
+    setIsLoading("detach");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoading(null);
+    toast({
+      title: "Volume Detached",
+      description: `Volume "${volumeToDetach.name}" has been detached`,
+    });
+    setVolumeToDetach(null);
+  };
+
+  const handleResize = async () => {
+    if (!volumeToResize) return;
+    setIsLoading("resize");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsLoading(null);
+    toast({
+      title: "Volume Resized",
+      description: `Volume "${volumeToResize.name}" has been resized to ${newSize} GB`,
+    });
+    setVolumeToResize(null);
+    setNewSize(0);
+  };
+
+  const handleSnapshot = async () => {
+    if (!volumeToSnapshot || !snapshotName) return;
+    setIsLoading("snapshot");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsLoading(null);
+    toast({
+      title: "Snapshot Created",
+      description: `Snapshot "${snapshotName}" has been created for volume "${volumeToSnapshot.name}"`,
+    });
+    setVolumeToSnapshot(null);
+    setSnapshotName("");
+  };
+
+  const handleDelete = async () => {
+    if (!volumeToDelete) return;
+    setIsLoading("delete");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoading(null);
+    toast({
+      title: "Volume Deleted",
+      description: `Volume "${volumeToDelete.name}" has been deleted`,
+      variant: "destructive",
+    });
+    setVolumeToDelete(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -167,14 +279,36 @@ export default function VolumesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {volume.status === "available" ? (
-                            <DropdownMenuItem>Attach to VM</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setVolumeToAttach(volume)}>
+                              <Link2 className="mr-2 h-4 w-4" />
+                              Attach to VM
+                            </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem>Detach</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setVolumeToDetach(volume)}>
+                              <Unlink className="mr-2 h-4 w-4" />
+                              Detach
+                            </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem>Resize</DropdownMenuItem>
-                          <DropdownMenuItem>Create Snapshot</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setVolumeToResize(volume);
+                            setNewSize(volume.size);
+                          }}>
+                            <Maximize2 className="mr-2 h-4 w-4" />
+                            Resize
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setVolumeToSnapshot(volume);
+                            setSnapshotName(`${volume.name}-snapshot-${Date.now()}`);
+                          }}>
+                            <Camera className="mr-2 h-4 w-4" />
+                            Create Snapshot
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setVolumeToDelete(volume)}
+                            disabled={volume.status === "in-use"}
+                          >
                             Delete Volume
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -183,10 +317,244 @@ export default function VolumesPage() {
                   </TableRow>
                 );
               })}
+              {volumes.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-muted-foreground">No volumes found</p>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/dashboard/storage/volumes/create">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create your first volume
+                        </Link>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Attach Volume Dialog */}
+      <Dialog open={!!volumeToAttach} onOpenChange={() => setVolumeToAttach(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Attach Volume</DialogTitle>
+            <DialogDescription>
+              Attach <strong>{volumeToAttach?.name}</strong> to a virtual machine.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Virtual Machine</Label>
+              <Select value={selectedVMId} onValueChange={setSelectedVMId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a VM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectVMs.filter((vm) => vm.status === "running").map((vm) => (
+                    <SelectItem key={vm.id} value={vm.id}>
+                      {vm.name} ({vm.privateIp})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {projectVMs.filter((vm) => vm.status === "running").length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No running VMs available. Start a VM first.
+                </p>
+              )}
+            </div>
+            <div className="rounded-lg border p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Volume Size</span>
+                <span>{volumeToAttach?.size} GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Volume Type</span>
+                <span>{volumeToAttach?.type.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVolumeToAttach(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAttach} disabled={!selectedVMId || isLoading === "attach"}>
+              {isLoading === "attach" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Attaching...
+                </>
+              ) : (
+                "Attach Volume"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detach Volume Confirmation */}
+      <AlertDialog open={!!volumeToDetach} onOpenChange={() => setVolumeToDetach(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Detach Volume?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to detach <strong>{volumeToDetach?.name}</strong>?
+              Make sure no applications are using this volume before detaching.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDetach} disabled={isLoading === "detach"}>
+              {isLoading === "detach" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Detaching...
+                </>
+              ) : (
+                "Detach Volume"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Resize Volume Dialog */}
+      <Dialog open={!!volumeToResize} onOpenChange={() => setVolumeToResize(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resize Volume</DialogTitle>
+            <DialogDescription>
+              Increase the size of <strong>{volumeToResize?.name}</strong>.
+              Volume size can only be increased, not decreased.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>New Size (GB)</Label>
+                <span className="text-sm font-medium">{newSize} GB</span>
+              </div>
+              <Slider
+                value={[newSize]}
+                onValueChange={(values) => setNewSize(values[0])}
+                min={volumeToResize?.size || 10}
+                max={1000}
+                step={10}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Current: {volumeToResize?.size} GB</span>
+                <span>Max: 1000 GB</span>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Additional Cost</span>
+                <span>${((newSize - (volumeToResize?.size || 0)) * 0.10).toFixed(2)}/month</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVolumeToResize(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResize}
+              disabled={newSize <= (volumeToResize?.size || 0) || isLoading === "resize"}
+            >
+              {isLoading === "resize" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Resizing...
+                </>
+              ) : (
+                "Resize Volume"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Snapshot Dialog */}
+      <Dialog open={!!volumeToSnapshot} onOpenChange={() => setVolumeToSnapshot(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Snapshot</DialogTitle>
+            <DialogDescription>
+              Create a point-in-time snapshot of <strong>{volumeToSnapshot?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="snapshot-name">Snapshot Name</Label>
+              <Input
+                id="snapshot-name"
+                value={snapshotName}
+                onChange={(e) => setSnapshotName(e.target.value)}
+                placeholder="Enter snapshot name"
+              />
+            </div>
+            <div className="rounded-lg border p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Volume Size</span>
+                <span>{volumeToSnapshot?.size} GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Estimated Cost</span>
+                <span>${((volumeToSnapshot?.size || 0) * 0.05).toFixed(2)}/month</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVolumeToSnapshot(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSnapshot} disabled={!snapshotName || isLoading === "snapshot"}>
+              {isLoading === "snapshot" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Snapshot"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Volume Confirmation */}
+      <AlertDialog open={!!volumeToDelete} onOpenChange={() => setVolumeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Volume?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{volumeToDelete?.name}</strong>?
+              This action cannot be undone. All data on this volume will be permanently lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isLoading === "delete"}
+            >
+              {isLoading === "delete" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Volume"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
