@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/cloudplatform/backend/internal/config"
 	"github.com/cloudplatform/backend/pkg/errors"
@@ -70,29 +69,29 @@ func (c *ZeroTierClient) doRequest(ctx context.Context, method, endpoint string,
 
 // Network represents a ZeroTier network
 type ZTNetwork struct {
-	ID                 string                 `json:"id"`
-	NWConfig           ZTNetworkConfig        `json:"config"`
-	Description        string                 `json:"description"`
-	RulesSource        string                 `json:"rulesSource"`
-	Permissions        map[string]interface{} `json:"permissions"`
-	OnlineMemberCount  int                    `json:"onlineMemberCount"`
-	AuthorizedMemberCount int                 `json:"authorizedMemberCount"`
-	TotalMemberCount   int                    `json:"totalMemberCount"`
-	CreationTime       int64                  `json:"creationTime"`
+	ID                    string                 `json:"id"`
+	NWConfig              ZTNetworkConfig        `json:"config"`
+	Description           string                 `json:"description"`
+	RulesSource           string                 `json:"rulesSource"`
+	Permissions           map[string]interface{} `json:"permissions"`
+	OnlineMemberCount     int                    `json:"onlineMemberCount"`
+	AuthorizedMemberCount int                    `json:"authorizedMemberCount"`
+	TotalMemberCount      int                    `json:"totalMemberCount"`
+	CreationTime          int64                  `json:"creationTime"`
 }
 
 // ZTNetworkConfig represents network configuration
 type ZTNetworkConfig struct {
-	Name             string           `json:"name"`
-	Private          bool             `json:"private"`
-	Routes           []ZTRoute        `json:"routes"`
-	IPAssignmentPools []ZTIPPool      `json:"ipAssignmentPools"`
-	V4AssignMode     ZTAssignMode     `json:"v4AssignMode"`
-	V6AssignMode     ZTAssignMode     `json:"v6AssignMode"`
-	MTU              int              `json:"mtu"`
-	MulticastLimit   int              `json:"multicastLimit"`
-	EnableBroadcast  bool             `json:"enableBroadcast"`
-	DNS              *ZTDNS           `json:"dns,omitempty"`
+	Name              string       `json:"name"`
+	Private           bool         `json:"private"`
+	Routes            []ZTRoute    `json:"routes"`
+	IPAssignmentPools []ZTIPPool   `json:"ipAssignmentPools"`
+	V4AssignMode      ZTAssignMode `json:"v4AssignMode"`
+	V6AssignMode      ZTAssignMode `json:"v6AssignMode"`
+	MTU               int          `json:"mtu"`
+	MulticastLimit    int          `json:"multicastLimit"`
+	EnableBroadcast   bool         `json:"enableBroadcast"`
+	DNS               *ZTDNS       `json:"dns,omitempty"`
 }
 
 // ZTRoute represents a network route
@@ -120,21 +119,21 @@ type ZTDNS struct {
 
 // Member represents a ZeroTier network member
 type ZTMember struct {
-	ID                     string            `json:"id"`
-	NetworkID              string            `json:"networkId"`
-	NodeID                 string            `json:"nodeId"`
-	Name                   string            `json:"name"`
-	Description            string            `json:"description"`
-	Hidden                 bool              `json:"hidden"`
-	Authorized             bool              `json:"config.authorized"`
-	IPAssignments          []string          `json:"config.ipAssignments"`
-	NoAutoAssignIPs        bool              `json:"config.noAutoAssignIps"`
-	Capabilities           []int             `json:"config.capabilities"`
-	Tags                   [][]int           `json:"config.tags"`
-	LastOnline             int64             `json:"lastOnline"`
-	LastSeen               int64             `json:"lastSeen"`
-	PhysicalAddress        string            `json:"physicalAddress"`
-	ClientVersion          string            `json:"clientVersion"`
+	ID              string   `json:"id"`
+	NetworkID       string   `json:"networkId"`
+	NodeID          string   `json:"nodeId"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Hidden          bool     `json:"hidden"`
+	Authorized      bool     `json:"config.authorized"`
+	IPAssignments   []string `json:"config.ipAssignments"`
+	NoAutoAssignIPs bool     `json:"config.noAutoAssignIps"`
+	Capabilities    []int    `json:"config.capabilities"`
+	Tags            [][]int  `json:"config.tags"`
+	LastOnline      int64    `json:"lastOnline"`
+	LastSeen        int64    `json:"lastSeen"`
+	PhysicalAddress string   `json:"physicalAddress"`
+	ClientVersion   string   `json:"clientVersion"`
 }
 
 // CreateNetworkRequest represents a request to create a network
