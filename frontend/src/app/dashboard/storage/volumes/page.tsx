@@ -279,24 +279,24 @@ export default function VolumesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {volume.status === "available" ? (
-                            <DropdownMenuItem onClick={() => setVolumeToAttach(volume)}>
+                            <DropdownMenuItem onSelect={() => setVolumeToAttach(volume)}>
                               <Link2 className="mr-2 h-4 w-4" />
                               Attach to VM
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onClick={() => setVolumeToDetach(volume)}>
+                            <DropdownMenuItem onSelect={() => setVolumeToDetach(volume)}>
                               <Unlink className="mr-2 h-4 w-4" />
                               Detach
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => {
+                          <DropdownMenuItem onSelect={() => {
                             setVolumeToResize(volume);
                             setNewSize(volume.size);
                           }}>
                             <Maximize2 className="mr-2 h-4 w-4" />
                             Resize
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
+                          <DropdownMenuItem onSelect={() => {
                             setVolumeToSnapshot(volume);
                             setSnapshotName(`${volume.name}-snapshot-${Date.now()}`);
                           }}>
@@ -306,7 +306,7 @@ export default function VolumesPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => setVolumeToDelete(volume)}
+                            onSelect={() => setVolumeToDelete(volume)}
                             disabled={volume.status === "in-use"}
                           >
                             Delete Volume

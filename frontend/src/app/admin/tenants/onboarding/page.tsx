@@ -13,6 +13,9 @@ import {
   ArrowRight,
   FileText,
   CreditCard,
+  Loader2,
+  User,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,13 +58,42 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Search } from "lucide-react";
 
+interface OnboardingRequest {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  requestedPlan: string;
+  estimatedSpend: number;
+  useCase: string;
+  status: string;
+  source: string;
+  createdAt: string;
+  assignedTo: string | null;
+  currentStep?: string;
+  rejectionReason?: string;
+}
+
 // Mock onboarding requests
-const mockOnboardingRequests = [
+const mockOnboardingRequests: OnboardingRequest[] = [
   {
     id: "onb-001",
     companyName: "Innovative Tech Solutions",
@@ -153,9 +185,28 @@ const planConfig = {
 };
 
 export default function OnboardingPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState<string | null>(null);
+
+  // Dialog states
+  const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+
+  // Form states
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [newCompany, setNewCompany] = useState("");
+  const [newContact, setNewContact] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPlan, setNewPlan] = useState("");
+  const [newNotes, setNewNotes] = useState("");
 
   const filteredRequests = mockOnboardingRequests.filter((req) => {
     const matchesSearch =
@@ -177,6 +228,76 @@ export default function OnboardingPage() {
   const potentialMRR = mockOnboardingRequests
     .filter((r) => r.status !== "rejected")
     .reduce((sum, r) => sum + r.estimatedSpend, 0);
+
+  const handleCreateTenant = async () => {
+    if (!newCompany || !newEmail || !newPlan) return;
+    setIsLoading("create");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsLoading(null);
+    toast({
+      title: "Tenant Created",
+      description: `${newCompany} has been successfully onboarded`,
+    });
+    setIsDialogOpen(false);
+    setNewCompany("");
+    setNewContact("");
+    setNewEmail("");
+    setNewPlan("");
+    setNewNotes("");
+  };
+
+  const handleContact = async () => {
+    if (!selectedRequest || !contactSubject || !contactMessage) return;
+    setIsLoading("contact");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoading(null);
+    toast({
+      title: "Message Sent",
+      description: `Email sent to ${selectedRequest.email}`,
+    });
+    setContactOpen(false);
+    setSelectedRequest(null);
+    setContactSubject("");
+    setContactMessage("");
+  };
+
+  const handleAssignToMe = async (request: OnboardingRequest) => {
+    setIsLoading(`assign-${request.id}`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsLoading(null);
+    toast({
+      title: "Assigned",
+      description: `${request.companyName} has been assigned to you`,
+    });
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+    setIsLoading("approve");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsLoading(null);
+    toast({
+      title: "Application Approved",
+      description: `${selectedRequest.companyName} has been approved for onboarding`,
+    });
+    setApproveOpen(false);
+    setSelectedRequest(null);
+  };
+
+  const handleReject = async () => {
+    if (!selectedRequest || !rejectionReason) return;
+    setIsLoading("reject");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoading(null);
+    toast({
+      title: "Application Rejected",
+      description: `${selectedRequest.companyName} has been rejected`,
+      variant: "destructive",
+    });
+    setRejectOpen(false);
+    setSelectedRequest(null);
+    setRejectionReason("");
+  };
 
   return (
     <div className="space-y-6">
@@ -204,19 +325,35 @@ export default function OnboardingPage() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="company">Company Name</Label>
-                <Input id="company" placeholder="Acme Corporation" />
+                <Input
+                  id="company"
+                  placeholder="Acme Corporation"
+                  value={newCompany}
+                  onChange={(e) => setNewCompany(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="contact">Contact Name</Label>
-                <Input id="contact" placeholder="John Doe" />
+                <Input
+                  id="contact"
+                  placeholder="John Doe"
+                  value={newContact}
+                  onChange={(e) => setNewContact(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="admin@acme.com" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="admin@acme.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="plan">Initial Plan</Label>
-                <Select>
+                <Select value={newPlan} onValueChange={setNewPlan}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
@@ -229,15 +366,30 @@ export default function OnboardingPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" placeholder="Internal notes..." />
+                <Textarea
+                  id="notes"
+                  placeholder="Internal notes..."
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>
-                Create Tenant
+              <Button
+                onClick={handleCreateTenant}
+                disabled={!newCompany || !newEmail || !newPlan || isLoading === "create"}
+              >
+                {isLoading === "create" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Tenant"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -347,7 +499,15 @@ export default function OnboardingPage() {
                           <Building className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{request.companyName}</p>
+                          <button
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setDetailsOpen(true);
+                            }}
+                            className="font-medium hover:underline text-left"
+                          >
+                            {request.companyName}
+                          </button>
                           <p className="text-xs text-muted-foreground">{request.email}</p>
                         </div>
                       </div>
@@ -399,20 +559,47 @@ export default function OnboardingPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => {
+                            setSelectedRequest(request);
+                            setDetailsOpen(true);
+                          }}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => {
+                            setSelectedRequest(request);
+                            setContactOpen(true);
+                          }}>
                             <Mail className="mr-2 h-4 w-4" />
                             Contact
                           </DropdownMenuItem>
-                          <DropdownMenuItem>Assign to Me</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => handleAssignToMe(request)}
+                            disabled={isLoading === `assign-${request.id}`}
+                          >
+                            <User className="mr-2 h-4 w-4" />
+                            {isLoading === `assign-${request.id}` ? "Assigning..." : "Assign to Me"}
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {request.status === "pending_review" && (
                             <>
-                              <DropdownMenuItem className="text-green-600">
+                              <DropdownMenuItem
+                                className="text-green-600"
+                                onSelect={() => {
+                                  setSelectedRequest(request);
+                                  setApproveOpen(true);
+                                }}
+                              >
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Approve
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onSelect={() => {
+                                  setSelectedRequest(request);
+                                  setRejectOpen(true);
+                                }}
+                              >
                                 <XCircle className="mr-2 h-4 w-4" />
                                 Reject
                               </DropdownMenuItem>
@@ -428,6 +615,235 @@ export default function OnboardingPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              {selectedRequest?.companyName}
+            </DialogTitle>
+            <DialogDescription>
+              Onboarding request details
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="info" className="mt-4">
+            <TabsList>
+              <TabsTrigger value="info">Information</TabsTrigger>
+              <TabsTrigger value="usecase">Use Case</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            <TabsContent value="info" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Contact Name</p>
+                  <p className="font-medium">{selectedRequest?.contactName}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{selectedRequest?.email}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Phone</p>
+                  <p className="font-medium">{selectedRequest?.phone}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Requested Plan</p>
+                  <Badge variant="outline" className="capitalize">
+                    {selectedRequest?.requestedPlan}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Estimated Spend</p>
+                  <p className="font-medium">${selectedRequest?.estimatedSpend.toLocaleString()}/mo</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Source</p>
+                  <p className="font-medium capitalize">{selectedRequest?.source.replace("_", " ")}</p>
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="usecase" className="space-y-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground mb-2">Use Case Description</p>
+                <p>{selectedRequest?.useCase}</p>
+              </div>
+            </TabsContent>
+            <TabsContent value="history" className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 rounded-lg border p-3">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Application Submitted</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedRequest?.createdAt && format(new Date(selectedRequest.createdAt), "PPpp")}
+                    </p>
+                  </div>
+                </div>
+                {selectedRequest?.assignedTo && (
+                  <div className="flex items-center gap-3 rounded-lg border p-3">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Assigned to {selectedRequest.assignedTo}</p>
+                      <p className="text-xs text-muted-foreground">Currently in: {selectedRequest.currentStep?.replace("_", " ")}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Close
+            </Button>
+            {selectedRequest?.status === "pending_review" && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDetailsOpen(false);
+                    setRejectOpen(true);
+                  }}
+                >
+                  Reject
+                </Button>
+                <Button
+                  onClick={() => {
+                    setDetailsOpen(false);
+                    setApproveOpen(true);
+                  }}
+                >
+                  Approve
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Dialog */}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Contact Applicant</DialogTitle>
+            <DialogDescription>
+              Send an email to {selectedRequest?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={contactSubject}
+                onChange={(e) => setContactSubject(e.target.value)}
+                placeholder="Regarding your application..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="message">Message</Label>
+              <Textarea
+                id="message"
+                value={contactMessage}
+                onChange={(e) => setContactMessage(e.target.value)}
+                placeholder="Enter your message..."
+                rows={5}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleContact}
+              disabled={!contactSubject || !contactMessage || isLoading === "contact"}
+            >
+              {isLoading === "contact" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Email"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation */}
+      <AlertDialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to approve <strong>{selectedRequest?.companyName}</strong>?
+              This will move them to the provisioning stage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApprove}
+              disabled={isLoading === "approve"}
+            >
+              {isLoading === "approve" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                "Approve"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Application</DialogTitle>
+            <DialogDescription>
+              Reject the application from {selectedRequest?.companyName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reason">Rejection Reason</Label>
+              <Textarea
+                id="reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please provide a reason for rejection..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={!rejectionReason || isLoading === "reject"}
+            >
+              {isLoading === "reject" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                "Reject Application"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

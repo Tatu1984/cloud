@@ -180,22 +180,22 @@ export default function PostgreSQLPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setDbForDetails(db)}>
+                  <DropdownMenuItem onSelect={() => setDbForDetails(db)}>
                     <ExternalLink className="mr-2 h-4 w-4" />
                     View Details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDbForConnection(db)}>
+                  <DropdownMenuItem onSelect={() => setDbForConnection(db)}>
                     <Copy className="mr-2 h-4 w-4" />
                     Connection Info
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
+                  <DropdownMenuItem onSelect={() => {
                     setDbToBackup(db);
                     setBackupName(`${db.name}-backup-${Date.now()}`);
                   }}>
                     <Save className="mr-2 h-4 w-4" />
                     Create Backup
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
+                  <DropdownMenuItem onSelect={() => {
                     setDbToResize(db);
                     setNewStorage(db.storage);
                     setNewVcpus(String(db.vcpus));
@@ -204,13 +204,13 @@ export default function PostgreSQLPage() {
                     Resize
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setDbToStop(db)}>
+                  <DropdownMenuItem onSelect={() => setDbToStop(db)}>
                     <Square className="mr-2 h-4 w-4" />
                     Stop Database
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => setDbToDelete(db)}
+                    onSelect={() => setDbToDelete(db)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete Database

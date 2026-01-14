@@ -420,7 +420,7 @@ export default function MySQLPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleShowConnectionInfo(db)}>
+                      <DropdownMenuItem onSelect={() => handleShowConnectionInfo(db)}>
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Connection Info
                       </DropdownMenuItem>

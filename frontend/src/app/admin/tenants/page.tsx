@@ -357,18 +357,18 @@ export default function TenantsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setTenantForDetails(tenant)}>
+                        <DropdownMenuItem onSelect={() => setTenantForDetails(tenant)}>
                           <ExternalLink className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
+                        <DropdownMenuItem onSelect={() => {
                           setSelectedTenantForContact(tenant);
                           setContactOpen(true);
                         }}>
                           <Mail className="mr-2 h-4 w-4" />
                           Contact
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
+                        <DropdownMenuItem onSelect={() => {
                           setTenantForQuotas(tenant);
                           setQuotaVMs(tenant.resourceUsage.vms + 5);
                           setQuotaVCPUs(tenant.resourceUsage.vcpus + 16);
@@ -378,7 +378,7 @@ export default function TenantsPage() {
                           <Settings className="mr-2 h-4 w-4" />
                           Edit Quotas
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
+                        <DropdownMenuItem onSelect={() => {
                           setTenantForPlan(tenant);
                           setSelectedPlan(tenant.organization.plan);
                         }}>
@@ -389,7 +389,7 @@ export default function TenantsPage() {
                         {tenant.status === "active" ? (
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => setTenantToSuspend(tenant)}
+                            onSelect={() => setTenantToSuspend(tenant)}
                           >
                             <Ban className="mr-2 h-4 w-4" />
                             Suspend Account
@@ -397,7 +397,7 @@ export default function TenantsPage() {
                         ) : (
                           <DropdownMenuItem
                             className="text-green-600"
-                            onClick={() => setTenantToActivate(tenant)}
+                            onSelect={() => setTenantToActivate(tenant)}
                           >
                             <CheckCircle className="mr-2 h-4 w-4" />
                             Activate Account

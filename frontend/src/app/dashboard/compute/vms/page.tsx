@@ -397,11 +397,11 @@ export default function VMsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setVmForConsole(vm)}>
+                        <DropdownMenuItem onSelect={() => setVmForConsole(vm)}>
                           <Terminal className="mr-2 h-4 w-4" />
                           Console
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setVmForDetails(vm)}>
+                        <DropdownMenuItem onSelect={() => setVmForDetails(vm)}>
                           <ExternalLink className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
@@ -409,7 +409,7 @@ export default function VMsPage() {
                         {vm.status === "running" ? (
                           <>
                             <DropdownMenuItem
-                              onClick={() => handleVMAction(vm, "stop")}
+                              onSelect={() => handleVMAction(vm, "stop")}
                               disabled={isLoading === `${vm.id}-stop`}
                             >
                               {isLoading === `${vm.id}-stop` ? (
@@ -420,7 +420,7 @@ export default function VMsPage() {
                               Stop
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleVMAction(vm, "restart")}
+                              onSelect={() => handleVMAction(vm, "restart")}
                               disabled={isLoading === `${vm.id}-restart`}
                             >
                               {isLoading === `${vm.id}-restart` ? (
@@ -433,7 +433,7 @@ export default function VMsPage() {
                           </>
                         ) : (
                           <DropdownMenuItem
-                            onClick={() => handleVMAction(vm, "start")}
+                            onSelect={() => handleVMAction(vm, "start")}
                             disabled={isLoading === `${vm.id}-start`}
                           >
                             {isLoading === `${vm.id}-start` ? (
@@ -445,7 +445,7 @@ export default function VMsPage() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => {
+                        <DropdownMenuItem onSelect={() => {
                           setVmToClone(vm);
                           setCloneName(`${vm.name}-clone`);
                         }}>
@@ -454,7 +454,7 @@ export default function VMsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => setVmToDelete(vm)}
+                          onSelect={() => setVmToDelete(vm)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete

@@ -434,38 +434,38 @@ export default function NodesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setNodeForConsole(node)}>
+                          <DropdownMenuItem onSelect={() => setNodeForConsole(node)}>
                             <Terminal className="mr-2 h-4 w-4" />
                             SSH Console
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setNodeForIPMI(node)}>
+                          <DropdownMenuItem onSelect={() => setNodeForIPMI(node)}>
                             <Network className="mr-2 h-4 w-4" />
                             IPMI Console
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setNodeForVMs(node)}>
+                          <DropdownMenuItem onSelect={() => setNodeForVMs(node)}>
                             <Server className="mr-2 h-4 w-4" />
                             View VMs
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {node.status === "online" ? (
-                            <DropdownMenuItem onClick={() => setNodeForMaintenance(node)}>
+                            <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
                               <Wrench className="mr-2 h-4 w-4" />
                               Enter Maintenance
                             </DropdownMenuItem>
                           ) : node.status === "maintenance" ? (
-                            <DropdownMenuItem onClick={() => setNodeForMaintenance(node)}>
+                            <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
                               <CheckCircle className="mr-2 h-4 w-4" />
                               Exit Maintenance
                             </DropdownMenuItem>
                           ) : null}
-                          <DropdownMenuItem onClick={() => setNodeForPower(node)}>
+                          <DropdownMenuItem onSelect={() => setNodeForPower(node)}>
                             <Power className="mr-2 h-4 w-4" />
                             Power Actions
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => setNodeToRemove(node)}
+                            onSelect={() => setNodeToRemove(node)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Remove from Cluster

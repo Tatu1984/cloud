@@ -528,7 +528,7 @@ export default function PaymentPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {!method.isDefault && (
-                          <DropdownMenuItem onClick={() => handleSetDefault(method.id)}>
+                          <DropdownMenuItem onSelect={() => handleSetDefault(method.id)}>
                             <Star className="mr-2 h-4 w-4" />
                             Set as Default
                           </DropdownMenuItem>
@@ -540,7 +540,7 @@ export default function PaymentPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => setCardToDelete(method.id)}
+                          onSelect={() => setCardToDelete(method.id)}
                           disabled={method.isDefault}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />

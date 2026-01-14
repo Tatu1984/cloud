@@ -154,18 +154,18 @@ export default function SecurityGroupsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSgToEdit(sg)}>
+                  <DropdownMenuItem onSelect={() => setSgToEdit(sg)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Rules
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSgForResources(sg)}>
+                  <DropdownMenuItem onSelect={() => setSgForResources(sg)}>
                     <Server className="mr-2 h-4 w-4" />
                     View Attached Resources
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => setSgToDelete(sg)}
+                    onSelect={() => setSgToDelete(sg)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete Security Group

@@ -604,7 +604,7 @@ export default function ApiKeysPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCopyKey(key.id, key.prefix)}>
+                          <DropdownMenuItem onSelect={() => handleCopyKey(key.id, key.prefix)}>
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Key Prefix
                           </DropdownMenuItem>
@@ -621,7 +621,7 @@ export default function ApiKeysPage() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => setKeyToRevoke(key)}
+                                onSelect={() => setKeyToRevoke(key)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Revoke Key

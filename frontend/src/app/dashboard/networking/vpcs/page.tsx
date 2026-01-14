@@ -161,7 +161,7 @@ export default function VPCsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => {
+                  <DropdownMenuItem onSelect={() => {
                     setVpcToEdit(vpc);
                     setEditName(vpc.name);
                     setEditDescription("");
@@ -169,18 +169,18 @@ export default function VPCsPage() {
                     <Edit className="mr-2 h-4 w-4" />
                     Edit VPC
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setVpcForSubnet(vpc)}>
+                  <DropdownMenuItem onSelect={() => setVpcForSubnet(vpc)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Subnet
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setVpcForRoutes(vpc)}>
+                  <DropdownMenuItem onSelect={() => setVpcForRoutes(vpc)}>
                     <Route className="mr-2 h-4 w-4" />
                     Route Tables
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => setVpcToDelete(vpc)}
+                    onSelect={() => setVpcToDelete(vpc)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete VPC

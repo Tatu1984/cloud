@@ -543,7 +543,7 @@ export default function UsersPage() {
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => setUserToRemove(member)}
+                                onSelect={() => setUserToRemove(member)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Remove User
@@ -634,7 +634,7 @@ export default function UsersPage() {
                             <DropdownMenuContent align="end">
                               {!isExpired && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleCopyInviteLink(invitation.id)}>
+                                  <DropdownMenuItem onSelect={() => handleCopyInviteLink(invitation.id)}>
                                     {copiedInviteLink === invitation.id ? (
                                       <>
                                         <Check className="mr-2 h-4 w-4 text-green-500" />

@@ -230,15 +230,15 @@ users:
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setClusterForDetails(cluster)}>
+                    <DropdownMenuItem onSelect={() => setClusterForDetails(cluster)}>
                       <ExternalLink className="mr-2 h-4 w-4" />
                       View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownloadKubeconfig(cluster)}>
+                    <DropdownMenuItem onSelect={() => handleDownloadKubeconfig(cluster)}>
                       <Download className="mr-2 h-4 w-4" />
                       Download Kubeconfig
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
+                    <DropdownMenuItem onSelect={() => {
                       setClusterToUpgrade(cluster);
                       setNewVersion("");
                     }}>
@@ -248,7 +248,7 @@ users:
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive"
-                      onClick={() => setClusterToDelete(cluster)}
+                      onSelect={() => setClusterToDelete(cluster)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete Cluster

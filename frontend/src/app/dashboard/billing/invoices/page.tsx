@@ -399,7 +399,7 @@ export default function InvoicesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewInvoice(invoice)}>
+                            <DropdownMenuItem onSelect={() => handleViewInvoice(invoice)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
