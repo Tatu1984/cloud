@@ -977,71 +977,478 @@ r.Use(middleware.RequireAdmin())
 
 ---
 
-## 8. External Integrations
+### 7.1 Microsoft Entra ID (Azure AD) SSO
 
-### Proxmox VE
+The platform supports Single Sign-On (SSO) via Microsoft Entra ID (formerly Azure Active Directory).
+
+#### Prerequisites
+
+- Microsoft Entra ID tenant (Azure subscription with Entra ID)
+- Administrative access to register applications in Entra ID
+
+#### Step 1: Register Application in Azure Portal
+
+1. **Navigate to Azure Portal**
+   - Go to: https://portal.azure.com
+   - Select: `Microsoft Entra ID` > `App registrations` > `New registration`
+
+2. **Configure Application**
+   ```
+   Name: Cloud Platform
+   Supported account types: Accounts in this organizational directory only (Single tenant)
+   Redirect URI (Web): http://localhost:3000/auth/callback
+   ```
+
+3. **Note the Application Values**
+   ```
+   Application (client) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   Directory (tenant) ID: yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+   ```
+
+#### Step 2: Create Client Secret
+
+1. **Navigate to Certificates & Secrets**
+   - Go to: `App registrations` > Your App > `Certificates & secrets`
+   - Click: `New client secret`
+
+2. **Create Secret**
+   ```
+   Description: Cloud Platform Backend
+   Expires: 24 months (recommended)
+   ```
+
+3. **Copy the Secret Value**
+   > ⚠️ Copy immediately! The value is only shown once.
+
+#### Step 3: Configure API Permissions
+
+1. **Add Required Permissions**
+   - Go to: `API permissions` > `Add a permission`
+   - Select: `Microsoft Graph` > `Delegated permissions`
+   - Add:
+     - `openid`
+     - `profile`
+     - `email`
+     - `User.Read`
+
+2. **Grant Admin Consent** (if required by your organization)
+   - Click: `Grant admin consent for [tenant]`
+
+#### Step 4: Configure Redirect URIs
+
+Add all required redirect URIs:
+```
+http://localhost:3000/auth/callback          # Local development
+https://your-domain.com/auth/callback        # Production
+```
+
+#### Step 5: Backend Environment Variables
+
+```bash
+# Microsoft Entra ID Configuration
+ENTRA_ID_ENABLED=true
+ENTRA_ID_TENANT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+ENTRA_ID_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ENTRA_ID_CLIENT_SECRET=your-client-secret-value
+ENTRA_ID_REDIRECT_URI=http://localhost:3000/auth/callback
+
+# Optional: Restrict to specific email domains
+ENTRA_ID_ALLOWED_DOMAINS=yourdomain.com,anotherdomain.com
+
+# Auto-provision new users on first SSO login
+ENTRA_ID_AUTO_PROVISION=true
+ENTRA_ID_DEFAULT_ROLE=user
+```
+
+#### Step 6: Frontend Environment Variables
+
+```bash
+# Microsoft Entra ID Configuration
+NEXT_PUBLIC_ENTRA_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+NEXT_PUBLIC_ENTRA_TENANT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+NEXT_PUBLIC_ENTRA_REDIRECT_URI=http://localhost:3000/auth/callback
+```
+
+#### Authentication Flow
+
+```
+┌──────────┐                    ┌──────────────┐                    ┌──────────┐
+│  Client  │                    │  Microsoft   │                    │  Backend │
+│ (Browser)│                    │  Entra ID    │                    │   API    │
+└────┬─────┘                    └──────┬───────┘                    └────┬─────┘
+     │                                 │                                 │
+     │  1. Click "Sign in with Microsoft"                               │
+     │─────────────────────────────────►                                │
+     │                                 │                                 │
+     │  2. Redirect to Microsoft login │                                │
+     │◄─────────────────────────────────                                │
+     │                                 │                                 │
+     │  3. User authenticates          │                                │
+     │─────────────────────────────────►                                │
+     │                                 │                                 │
+     │  4. Return authorization code   │                                │
+     │◄─────────────────────────────────                                │
+     │                                 │                                 │
+     │  5. POST /auth/microsoft/callback (code)                         │
+     │──────────────────────────────────────────────────────────────────►
+     │                                 │                                 │
+     │                                 │  6. Exchange code for tokens   │
+     │                                 │◄────────────────────────────────
+     │                                 │                                 │
+     │                                 │  7. Return ID token            │
+     │                                 │────────────────────────────────►
+     │                                 │                                 │
+     │  8. Return JWT tokens + user info                                │
+     │◄──────────────────────────────────────────────────────────────────
+     │                                 │                                 │
+```
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/auth/config` | Get auth configuration (includes Entra ID status) |
+| GET | `/api/v1/auth/microsoft` | Get Microsoft authorization URL |
+| POST | `/api/v1/auth/microsoft/callback` | Exchange auth code for tokens |
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `AADSTS50011: Reply URL mismatch` | Ensure redirect URI in Azure matches exactly |
+| `AADSTS700016: Application not found` | Verify client ID is correct |
+| `Token validation failed` | Check tenant ID and token audience |
+| `Email domain not allowed` | Add domain to `ENTRA_ID_ALLOWED_DOMAINS` |
+| `User not found` | Enable `ENTRA_ID_AUTO_PROVISION=true` |
+
+---
+
+## 8. External Integrations & Deployment Guide
+
+This section provides step-by-step instructions for connecting to the infrastructure services.
+
+---
+
+### 8.1 Proxmox VE
 
 **Purpose:** Virtual machine provisioning and lifecycle management
 
-**Configuration:**
-```go
-ProxmoxConfig struct {
-    APIUrl      string // https://proxmox.local:8006/api2/json
-    User        string // root@pam or API user
-    Password    string // For password auth
-    TokenID     string // For token auth
-    TokenSecret string
-    VerifySSL   bool
-    Timeout     time.Duration // 30s default
-}
+#### Prerequisites
+
+- Proxmox VE 7.x or 8.x installed and accessible
+- Network connectivity from the backend server to Proxmox API (port 8006)
+- Administrative access to create API tokens
+
+#### Step 1: Create API Token in Proxmox
+
+1. **Login to Proxmox Web UI**
+   ```
+   https://<proxmox-ip>:8006
+   ```
+
+2. **Navigate to API Tokens**
+   - Go to: `Datacenter` → `Permissions` → `API Tokens`
+   - Click `Add`
+
+3. **Create the Token**
+   ```
+   User:         root@pam (or your admin user)
+   Token ID:     cloudplatform
+   Privilege Separation: Unchecked (for full access)
+   ```
+
+4. **Save the Token Secret**
+   > ⚠️ The secret is only shown once! Copy it immediately.
+   ```
+   Token: root@pam!cloudplatform
+   Secret: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+
+#### Step 2: Configure Environment Variables
+
+```bash
+# Proxmox Configuration
+PROXMOX_API_URL=https://192.168.1.100:8006/api2/json
+PROXMOX_USER=root@pam
+PROXMOX_TOKEN_ID=cloudplatform
+PROXMOX_TOKEN_SECRET=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+PROXMOX_VERIFY_SSL=false  # Set to true if using valid SSL cert
 ```
 
-**Operations:**
-- VM creation, deletion, cloning
-- Start, stop, reboot, shutdown
-- Snapshot management
-- Node and cluster monitoring
+#### Step 3: Test Connection
 
-### ZeroTier
+```bash
+# Test API connectivity
+curl -k -H "Authorization: PVEAPIToken=root@pam!cloudplatform=<secret>" \
+  https://<proxmox-ip>:8006/api2/json/version
+
+# Expected response:
+# {"data":{"version":"8.1.3","release":"8.1","repoid":"..."}}
+```
+
+#### Step 4: Required Proxmox Permissions
+
+For production, create a dedicated user with minimal permissions:
+
+```bash
+# On Proxmox server, create role
+pveum role add CloudPlatform -privs "VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Monitor VM.Audit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit SDN.Use"
+
+# Create user
+pveum user add cloudplatform@pve
+
+# Create API token
+pveum user token add cloudplatform@pve api --privsep=0
+
+# Assign role
+pveum aclmod / -user cloudplatform@pve -role CloudPlatform
+```
+
+#### Proxmox API Operations
+
+| Operation | API Endpoint | Method |
+|-----------|--------------|--------|
+| List VMs | `/nodes/{node}/qemu` | GET |
+| Create VM | `/nodes/{node}/qemu` | POST |
+| Start VM | `/nodes/{node}/qemu/{vmid}/status/start` | POST |
+| Stop VM | `/nodes/{node}/qemu/{vmid}/status/stop` | POST |
+| Delete VM | `/nodes/{node}/qemu/{vmid}` | DELETE |
+| Clone VM | `/nodes/{node}/qemu/{vmid}/clone` | POST |
+| Get Status | `/nodes/{node}/qemu/{vmid}/status/current` | GET |
+
+---
+
+### 8.2 ZeroTier
 
 **Purpose:** Software-defined overlay networking for VPCs
 
-**Configuration:**
-```go
-ZeroTierConfig struct {
-    ControllerURL string // http://localhost:9993
-    APIToken      string // Bearer token
-    NetworkID     string // Default network ID
-    Timeout       time.Duration // 10s default
-}
+#### Prerequisites
+
+- ZeroTier Central account OR self-hosted ZeroTier controller
+- ZeroTier One installed on all nodes that need connectivity
+
+#### Option A: ZeroTier Central (Recommended for getting started)
+
+1. **Create Account**
+   - Go to: https://my.zerotier.com
+   - Sign up for free account
+
+2. **Create Network**
+   - Click `Create A Network`
+   - Note the 16-character Network ID (e.g., `a09acf02337b1234`)
+
+3. **Get API Token**
+   - Go to: `Account` → `API Access Tokens`
+   - Click `Generate New Token`
+   - Save the token securely
+
+4. **Configure Environment**
+   ```bash
+   ZEROTIER_CONTROLLER_URL=https://api.zerotier.com/api/v1
+   ZEROTIER_API_TOKEN=<your-api-token>
+   ZEROTIER_NETWORK_ID=a09acf02337b1234
+   ```
+
+#### Option B: Self-Hosted Controller
+
+1. **Install ZeroTier with Controller**
+   ```bash
+   # Install ZeroTier
+   curl -s https://install.zerotier.com | sudo bash
+
+   # Enable controller mode
+   sudo zerotier-cli set <node-id> allowManaged=1
+   ```
+
+2. **Generate Controller Token**
+   ```bash
+   # Get authtoken
+   sudo cat /var/lib/zerotier-one/authtoken.secret
+   ```
+
+3. **Create Network via API**
+   ```bash
+   # Create new network
+   curl -X POST http://localhost:9993/controller/network/<node-id>______ \
+     -H "X-ZT1-AUTH: <authtoken>" \
+     -d '{}'
+   ```
+
+4. **Configure Environment**
+   ```bash
+   ZEROTIER_CONTROLLER_URL=http://localhost:9993
+   ZEROTIER_API_TOKEN=<authtoken-secret>
+   ZEROTIER_NETWORK_ID=<network-id>
+   ```
+
+#### Step: Test ZeroTier Connection
+
+```bash
+# For ZeroTier Central
+curl -H "Authorization: token <api-token>" \
+  https://api.zerotier.com/api/v1/network
+
+# For self-hosted
+curl -H "X-ZT1-AUTH: <authtoken>" \
+  http://localhost:9993/controller/network
 ```
 
-**Operations:**
-- Network creation and management
-- Member authorization
-- IP assignment
-- Route configuration
+#### ZeroTier API Operations
 
-### Ceph Storage
+| Operation | API Endpoint | Method |
+|-----------|--------------|--------|
+| List Networks | `/network` | GET |
+| Get Network | `/network/{networkId}` | GET |
+| Create Network | `/network/{networkId}` | POST |
+| Delete Network | `/network/{networkId}` | DELETE |
+| List Members | `/network/{networkId}/member` | GET |
+| Authorize Member | `/network/{networkId}/member/{nodeId}` | POST |
+
+#### Joining VMs to ZeroTier Network
+
+```bash
+# On each VM that needs network access
+curl -s https://install.zerotier.com | sudo bash
+sudo zerotier-cli join <network-id>
+
+# Authorize in ZeroTier Central or via API
+curl -X POST "https://api.zerotier.com/api/v1/network/<network-id>/member/<node-id>" \
+  -H "Authorization: token <api-token>" \
+  -d '{"config": {"authorized": true}}'
+```
+
+---
+
+### 8.3 Ceph Storage
 
 **Purpose:** Distributed block and object storage
 
-**Configuration:**
-```go
-CephConfig struct {
-    MonHosts     []string // ["mon1", "mon2", "mon3"]
-    User         string   // "admin"
-    Keyring      string   // Path to keyring
-    Pool         string   // Default pool
-    RBDImageSize int64    // Default 10GB
-}
+#### Prerequisites
+
+- Ceph cluster deployed (Quincy or Reef recommended)
+- Network connectivity to Ceph monitors
+- Ceph client credentials (keyring)
+
+#### Step 1: Get Ceph Credentials
+
+```bash
+# On a Ceph monitor node, get the admin keyring
+sudo ceph auth get-or-create client.cloudplatform \
+  mon 'allow r' \
+  osd 'allow rwx pool=cloudplatform' \
+  -o /etc/ceph/ceph.client.cloudplatform.keyring
+
+# Get the key
+sudo ceph auth get client.cloudplatform
 ```
 
-**Operations:**
-- Pool management
-- RBD image CRUD
-- Snapshot management
-- Cluster health monitoring
+#### Step 2: Create Storage Pool
+
+```bash
+# Create RBD pool for block storage
+sudo ceph osd pool create cloudplatform 128
+sudo ceph osd pool application enable cloudplatform rbd
+sudo rbd pool init cloudplatform
+```
+
+#### Step 3: Configure Environment
+
+```bash
+# Ceph Configuration
+CEPH_MON_HOSTS=192.168.1.10,192.168.1.11,192.168.1.12
+CEPH_USER=cloudplatform
+CEPH_KEYRING=/etc/ceph/ceph.client.cloudplatform.keyring
+CEPH_POOL=cloudplatform
+```
+
+#### Step 4: Test Connection
+
+```bash
+# Test cluster connectivity
+ceph -s --id cloudplatform
+
+# Test RBD access
+rbd ls cloudplatform --id cloudplatform
+```
+
+#### Ceph Operations
+
+| Operation | Command |
+|-----------|---------|
+| Create Volume | `rbd create --size 10G cloudplatform/volume-001` |
+| Delete Volume | `rbd rm cloudplatform/volume-001` |
+| Resize Volume | `rbd resize --size 20G cloudplatform/volume-001` |
+| Create Snapshot | `rbd snap create cloudplatform/volume-001@snap1` |
+| Clone Volume | `rbd clone cloudplatform/vol@snap cloudplatform/vol-clone` |
+
+---
+
+### 8.4 Network Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CLOUD PLATFORM                                │
+│  ┌─────────────┐                                                    │
+│  │   Backend   │                                                    │
+│  │   Server    │                                                    │
+│  └──────┬──────┘                                                    │
+│         │                                                           │
+│         ├──────────────────┬───────────────────┬──────────────────┐│
+│         │                  │                   │                  ││
+│         ▼                  ▼                   ▼                  ▼│
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────┐│
+│  │   Proxmox    │  │   ZeroTier   │  │    Ceph      │  │  Redis  ││
+│  │   Cluster    │  │  Controller  │  │   Cluster    │  │  Cache  ││
+│  │  :8006/api   │  │    :9993     │  │   :6789      │  │  :6379  ││
+│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────┘│
+│         │                  │                   │                   │
+│         │         ┌────────┴────────┐          │                   │
+│         │         │  ZeroTier       │          │                   │
+│         │         │  Overlay Net    │          │                   │
+│         │         │  (10.147.x.x)   │          │                   │
+│         │         └────────┬────────┘          │                   │
+│         │                  │                   │                   │
+│         ▼                  ▼                   ▼                   │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                    VIRTUAL MACHINES                          │  │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐         │  │
+│  │  │  VM 1   │  │  VM 2   │  │  VM 3   │  │  VM N   │         │  │
+│  │  │ ZT+RBD  │  │ ZT+RBD  │  │ ZT+RBD  │  │ ZT+RBD  │         │  │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘         │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 8.5 Troubleshooting
+
+#### Proxmox Connection Issues
+
+| Issue | Solution |
+|-------|----------|
+| `SSL certificate problem` | Set `PROXMOX_VERIFY_SSL=false` or add valid cert |
+| `401 Unauthorized` | Verify token format: `user@realm!tokenid=secret` |
+| `Connection refused` | Check firewall, ensure port 8006 is open |
+| `Permission denied` | Verify API token has required privileges |
+
+#### ZeroTier Connection Issues
+
+| Issue | Solution |
+|-------|----------|
+| `OFFLINE` status | Check ZeroTier service: `systemctl status zerotier-one` |
+| `ACCESS_DENIED` | Member not authorized - authorize via API/Central |
+| `NO_DIRECT_PATH` | Check firewall UDP 9993, may need relay |
+| `Network not found` | Verify network ID is correct |
+
+#### Ceph Connection Issues
+
+| Issue | Solution |
+|-------|----------|
+| `RADOS permission denied` | Check keyring path and permissions |
+| `Monitor connection failed` | Verify MON_HOSTS IPs, check port 6789 |
+| `Pool does not exist` | Create pool: `ceph osd pool create <name> 128` |
+| `No space left` | Check cluster capacity: `ceph df` |
 
 ---
 

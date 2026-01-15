@@ -14,8 +14,9 @@ import (
 
 // Service handles IAM operations
 type Service struct {
-	db         *gorm.DB
-	jwtService *auth.JWTService
+	db             *gorm.DB
+	jwtService     *auth.JWTService
+	entraIDService *auth.EntraIDService
 }
 
 // NewService creates a new IAM service
@@ -23,6 +24,15 @@ func NewService(db *gorm.DB, cfg *config.JWTConfig) *Service {
 	return &Service{
 		db:         db,
 		jwtService: auth.NewJWTService(cfg),
+	}
+}
+
+// NewServiceWithEntraID creates a new IAM service with Entra ID support
+func NewServiceWithEntraID(db *gorm.DB, jwtCfg *config.JWTConfig, entraIDCfg *config.EntraIDConfig) *Service {
+	return &Service{
+		db:             db,
+		jwtService:     auth.NewJWTService(jwtCfg),
+		entraIDService: auth.NewEntraIDService(entraIDCfg),
 	}
 }
 
@@ -491,6 +501,223 @@ func (s *Service) DeleteUser(ctx context.Context, userID string) error {
 	s.db.Where("user_id = ?", userID).Delete(&database.Session{})
 
 	return nil
+}
+
+// EntraID Authentication Methods
+
+// EntraIDAuthURL returns the Microsoft authorization URL
+func (s *Service) EntraIDAuthURL(state string) (string, error) {
+	if s.entraIDService == nil || !s.entraIDService.IsEnabled() {
+		return "", errors.New(errors.ErrForbidden, "Microsoft authentication is not enabled")
+	}
+	return s.entraIDService.GetAuthorizationURL(state), nil
+}
+
+// EntraIDCallback handles the OAuth callback from Microsoft
+func (s *Service) EntraIDCallback(ctx context.Context, code string) (*AuthResponse, error) {
+	if s.entraIDService == nil || !s.entraIDService.IsEnabled() {
+		return nil, errors.New(errors.ErrForbidden, "Microsoft authentication is not enabled")
+	}
+
+	// Exchange code for tokens
+	tokens, err := s.entraIDService.ExchangeCode(ctx, code)
+	if err != nil {
+		return nil, errors.New(errors.ErrInvalidCredentials, "failed to authenticate with Microsoft: "+err.Error())
+	}
+
+	// Validate ID token and get claims
+	claims, err := s.entraIDService.ValidateIDToken(ctx, tokens.IDToken)
+	if err != nil {
+		return nil, errors.New(errors.ErrInvalidToken, "invalid Microsoft token: "+err.Error())
+	}
+
+	email := claims.GetEmail()
+	if email == "" {
+		return nil, errors.New(errors.ErrValidation, "email not found in Microsoft token")
+	}
+
+	// Check if email domain is allowed
+	if !s.entraIDService.IsEmailAllowed(email) {
+		return nil, errors.New(errors.ErrForbidden, "email domain not allowed")
+	}
+
+	// Look for existing user
+	var user database.User
+	err = s.db.WithContext(ctx).
+		Preload("Organization").
+		Preload("Roles").
+		Where("email = ? AND deleted_at IS NULL", email).
+		First(&user).Error
+
+	cfg := s.entraIDService.GetConfig()
+
+	if err == gorm.ErrRecordNotFound {
+		// User doesn't exist - check if auto-provision is enabled
+		if !cfg.AutoProvision {
+			return nil, errors.New(errors.ErrNotFound, "user not found and auto-provisioning is disabled")
+		}
+
+		// Create new user and organization
+		return s.createEntraIDUser(ctx, claims, cfg.DefaultRole)
+	} else if err != nil {
+		return nil, errors.DatabaseError(err)
+	}
+
+	// User exists - update last login and generate tokens
+	return s.loginExistingEntraIDUser(ctx, &user)
+}
+
+// createEntraIDUser creates a new user from Entra ID claims
+func (s *Service) createEntraIDUser(ctx context.Context, claims *auth.EntraIDClaims, defaultRole string) (*AuthResponse, error) {
+	email := claims.GetEmail()
+	name := claims.GetDisplayName()
+
+	// Generate slug from email domain for organization name
+	orgName := name + "'s Organization"
+	slug := generateSlug(orgName)
+
+	// Start transaction
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Create organization
+	org := database.Organization{
+		Name:   orgName,
+		Slug:   slug,
+		Plan:   "starter",
+		Status: "active",
+	}
+	if err := tx.Create(&org).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.DatabaseError(err)
+	}
+
+	// Create user (no password for SSO users)
+	user := database.User{
+		Email:          email,
+		Name:           name,
+		PasswordHash:   "", // Empty for SSO users
+		OrganizationID: org.ID,
+		EmailVerified:  true, // Microsoft verified the email
+		Status:         "active",
+		EntraIDOID:     claims.OID, // Store Microsoft Object ID
+	}
+	if err := tx.Create(&user).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.DatabaseError(err)
+	}
+
+	// Get or create role
+	var role database.Role
+	if err := tx.Where("name = ?", defaultRole).First(&role).Error; err != nil {
+		role = database.Role{
+			Name:        defaultRole,
+			DisplayName: defaultRole,
+			IsSystem:    true,
+		}
+		tx.Create(&role)
+	}
+
+	// Assign role to user
+	userRole := database.UserRole{
+		UserID: user.ID,
+		RoleID: role.ID,
+	}
+	if err := tx.Create(&userRole).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.DatabaseError(err)
+	}
+
+	// Create default project
+	project := database.Project{
+		Name:           "Default Project",
+		Description:    "Your default project",
+		OrganizationID: org.ID,
+		Status:         "active",
+	}
+	tx.Create(&project)
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return nil, errors.DatabaseError(err)
+	}
+
+	// Generate our JWT tokens
+	roles := []string{defaultRole}
+	jwtTokens, err := s.jwtService.GenerateTokenPair(user.ID, user.Email, org.ID, roles)
+	if err != nil {
+		return nil, errors.Internal("failed to generate tokens")
+	}
+
+	return &AuthResponse{
+		User:         toUserResponse(user, roles),
+		Organization: toOrganizationResponse(org),
+		Tokens:       jwtTokens,
+	}, nil
+}
+
+// loginExistingEntraIDUser logs in an existing user via Entra ID
+func (s *Service) loginExistingEntraIDUser(ctx context.Context, user *database.User) (*AuthResponse, error) {
+	// Check user status
+	if user.Status != "active" {
+		return nil, errors.New(errors.ErrForbidden, "account is not active")
+	}
+
+	// Get role names
+	roles := make([]string, len(user.Roles))
+	for i, role := range user.Roles {
+		roles[i] = role.Name
+	}
+
+	// Generate tokens
+	tokens, err := s.jwtService.GenerateTokenPair(user.ID, user.Email, user.OrganizationID, roles)
+	if err != nil {
+		return nil, errors.Internal("failed to generate tokens")
+	}
+
+	// Update last login
+	s.db.Model(user).Update("last_login_at", time.Now())
+
+	// Create session
+	session := database.Session{
+		UserID:       user.ID,
+		RefreshToken: tokens.RefreshToken,
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+	}
+	s.db.Create(&session)
+
+	return &AuthResponse{
+		User:         toUserResponse(*user, roles),
+		Organization: toOrganizationResponse(user.Organization),
+		Tokens:       tokens,
+	}, nil
+}
+
+// IsEntraIDEnabled returns whether Entra ID authentication is enabled
+func (s *Service) IsEntraIDEnabled() bool {
+	return s.entraIDService != nil && s.entraIDService.IsEnabled()
+}
+
+// GetEntraIDConfig returns public Entra ID configuration for frontend
+func (s *Service) GetEntraIDConfig() map[string]interface{} {
+	if s.entraIDService == nil || !s.entraIDService.IsEnabled() {
+		return map[string]interface{}{
+			"enabled": false,
+		}
+	}
+
+	cfg := s.entraIDService.GetConfig()
+	return map[string]interface{}{
+		"enabled":     true,
+		"clientId":    cfg.ClientID,
+		"tenantId":    cfg.TenantID,
+		"redirectUri": cfg.RedirectURI,
+		"scopes":      cfg.Scopes,
+	}
 }
 
 // Helper functions

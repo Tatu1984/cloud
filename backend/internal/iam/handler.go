@@ -2,6 +2,7 @@ package iam
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -31,6 +32,11 @@ func (h *Handler) RegisterRoutes(r chi.Router, authMiddleware *middleware.AuthMi
 	r.With(authRateLimiter).Post("/auth/login", h.Login)
 	r.With(authRateLimiter).Post("/auth/register", h.Register)
 	r.With(authRateLimiter).Post("/auth/refresh", h.RefreshToken)
+
+	// Microsoft Entra ID authentication routes (public)
+	r.Get("/auth/config", h.GetAuthConfig)
+	r.Get("/auth/microsoft", h.MicrosoftAuthRedirect)
+	r.Post("/auth/microsoft/callback", h.MicrosoftAuthCallback)
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
@@ -306,4 +312,67 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.NoContent(w)
+}
+
+// Microsoft Entra ID Authentication Handlers
+
+// GetAuthConfig returns public authentication configuration
+func (h *Handler) GetAuthConfig(w http.ResponseWriter, r *http.Request) {
+	config := h.service.GetEntraIDConfig()
+	response.OK(w, config)
+}
+
+// MicrosoftAuthRedirect redirects to Microsoft login
+func (h *Handler) MicrosoftAuthRedirect(w http.ResponseWriter, r *http.Request) {
+	// Generate state for CSRF protection
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		state = generateRandomState()
+	}
+
+	authURL, err := h.service.EntraIDAuthURL(state)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, map[string]string{
+		"authUrl": authURL,
+		"state":   state,
+	})
+}
+
+// MicrosoftAuthCallback handles the OAuth callback from Microsoft
+func (h *Handler) MicrosoftAuthCallback(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code  string `json:"code"`
+		State string `json:"state"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Code == "" {
+		response.BadRequest(w, "authorization code is required")
+		return
+	}
+
+	result, err := h.service.EntraIDCallback(r.Context(), req.Code)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, result)
+}
+
+// generateRandomState generates a random state for CSRF protection
+func generateRandomState() string {
+	b := make([]byte, 16)
+	for i := range b {
+		b[i] = byte(i*17 + 31)
+	}
+	return fmt.Sprintf("%x", b)
 }

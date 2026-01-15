@@ -37,6 +37,9 @@ type User struct {
 	Status         string       `gorm:"size:20;default:'active'" json:"status"`
 	LastLoginAt    sql.NullTime `json:"lastLoginAt,omitempty"`
 	DeletedAt      sql.NullTime `gorm:"index" json:"-"`
+	// SSO fields
+	EntraIDOID     string       `gorm:"size:255;index" json:"entraIdOid,omitempty"` // Microsoft Entra ID Object ID
+	AuthProvider   string       `gorm:"size:50;default:'local'" json:"authProvider"` // local, entra_id, etc.
 
 	// Relations
 	Organization Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`

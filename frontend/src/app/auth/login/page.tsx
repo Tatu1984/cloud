@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Info, ArrowLeft } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { User, Info, ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { useMicrosoftAuth } from '@/hooks/use-microsoft-auth';
+
+// Microsoft icon component
+const MicrosoftIcon = () => (
+  <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+    <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+    <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+    <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+  </svg>
+);
 
 // Demo credentials
 const DEMO_USER = {
@@ -25,9 +37,35 @@ export default function UserLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const {
+    signInWithMicrosoft,
+    handleRedirectCallback,
+    isLoading: microsoftLoading,
+    error: microsoftError,
+    isConfigured: isMicrosoftConfigured,
+    clearError: clearMicrosoftError,
+  } = useMicrosoftAuth();
+
+  // Handle Microsoft redirect callback
+  useEffect(() => {
+    handleRedirectCallback().then((result) => {
+      if (result) {
+        router.push('/dashboard');
+      }
+    });
+  }, [handleRedirectCallback, router]);
+
+  // Show Microsoft auth errors
+  useEffect(() => {
+    if (microsoftError) {
+      setError(microsoftError);
+    }
+  }, [microsoftError]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    clearMicrosoftError();
     setLoading(true);
 
     // Simulate API call delay
@@ -59,6 +97,12 @@ export default function UserLoginPage() {
     setLoading(false);
   };
 
+  const handleMicrosoftLogin = async () => {
+    setError('');
+    clearMicrosoftError();
+    await signInWithMicrosoft();
+  };
+
   const fillDemoCredentials = () => {
     setEmail(DEMO_USER.email);
     setPassword(DEMO_USER.password);
@@ -77,6 +121,35 @@ export default function UserLoginPage() {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Microsoft SSO Button */}
+        {isMicrosoftConfigured && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-slate-600 bg-white text-slate-900 hover:bg-slate-100"
+              onClick={handleMicrosoftLogin}
+              disabled={microsoftLoading || loading}
+            >
+              {microsoftLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MicrosoftIcon />
+              )}
+              <span className="ml-2">Sign in with Microsoft</span>
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full bg-slate-600" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-slate-800/50 px-2 text-slate-400">Or continue with</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Demo Credentials Box */}
         <Alert className="bg-blue-500/10 border-blue-500/30">
           <Info className="h-4 w-4 text-blue-400" />

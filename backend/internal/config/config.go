@@ -12,6 +12,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	EntraID  EntraIDConfig
 	Proxmox  ProxmoxConfig
 	ZeroTier ZeroTierConfig
 	Ceph     CephConfig
@@ -47,6 +48,23 @@ type JWTConfig struct {
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 	Issuer          string
+}
+
+// EntraIDConfig holds Microsoft Entra ID (Azure AD) settings
+type EntraIDConfig struct {
+	Enabled      bool
+	TenantID     string
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
+	// Scopes for authorization (e.g., "User.Read", "openid", "profile", "email")
+	Scopes []string
+	// AllowedDomains restricts login to specific email domains (empty = allow all)
+	AllowedDomains []string
+	// AutoProvision creates users on first login if true
+	AutoProvision bool
+	// DefaultRole for auto-provisioned users
+	DefaultRole string
 }
 
 // ProxmoxConfig holds Proxmox API settings
@@ -112,6 +130,17 @@ func Load() *Config {
 			AccessTokenTTL:  getDurationEnv("JWT_ACCESS_TOKEN_TTL", 15*time.Minute),
 			RefreshTokenTTL: getDurationEnv("JWT_REFRESH_TOKEN_TTL", 7*24*time.Hour),
 			Issuer:          getEnv("JWT_ISSUER", "cloudplatform"),
+		},
+		EntraID: EntraIDConfig{
+			Enabled:        getBoolEnv("ENTRA_ID_ENABLED", false),
+			TenantID:       getEnv("ENTRA_ID_TENANT_ID", ""),
+			ClientID:       getEnv("ENTRA_ID_CLIENT_ID", ""),
+			ClientSecret:   getEnv("ENTRA_ID_CLIENT_SECRET", ""),
+			RedirectURI:    getEnv("ENTRA_ID_REDIRECT_URI", "http://localhost:3000/auth/callback"),
+			Scopes:         getEnvSlice("ENTRA_ID_SCOPES", []string{"openid", "profile", "email", "User.Read"}),
+			AllowedDomains: getEnvSlice("ENTRA_ID_ALLOWED_DOMAINS", []string{}),
+			AutoProvision:  getBoolEnv("ENTRA_ID_AUTO_PROVISION", true),
+			DefaultRole:    getEnv("ENTRA_ID_DEFAULT_ROLE", "user"),
 		},
 		Proxmox: ProxmoxConfig{
 			APIUrl:      getEnv("PROXMOX_API_URL", "https://proxmox.local:8006/api2/json"),
