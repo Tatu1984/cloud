@@ -51,19 +51,17 @@ stages:
             displayName: 'Install dependencies'
             workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
 
-          # Run linting
+          # Run linting - FAIL BUILD ON LINT ERRORS
           - script: |
-              npm run lint || true
+              npm run lint
             displayName: 'Run ESLint'
             workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
-            continueOnError: true
 
-          # Run type check
+          # Run type check - FAIL BUILD ON TYPE ERRORS
           - script: |
-              npx tsc --noEmit || true
+              npx tsc --noEmit
             displayName: 'TypeScript type check'
             workingDirectory: '$(Build.SourcesDirectory)/$(FRONTEND_DIR)'
-            continueOnError: true
 
           # Build the application
           - script: |

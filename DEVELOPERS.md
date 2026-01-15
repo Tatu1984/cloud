@@ -1232,6 +1232,7 @@ docker-compose up -d
 - Fixed Dockerfile to handle missing `go.sum`
 - Fixed unused import in `zerotier.go`
 - Fixed PostgreSQL version mismatch in Docker volumes
+- Fixed landing page center alignment (added `mx-auto` to all container elements)
 
 ### Demo Credentials
 | Role | Email | Password |

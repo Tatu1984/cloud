@@ -40,10 +40,22 @@ stages:
             displayName: 'Download dependencies'
             workingDirectory: '$(Build.SourcesDirectory)'
 
-          # Run tests
+          # Run linting
+          - script: |
+              go vet ./...
+            displayName: 'Go vet (linting)'
+            workingDirectory: '$(Build.SourcesDirectory)'
+
+          # Run tests - FAIL BUILD ON TEST FAILURES
           - script: |
               go test -v -race -coverprofile=coverage.out ./...
             displayName: 'Run tests'
+            workingDirectory: '$(Build.SourcesDirectory)'
+
+          # Check test coverage (informational, doesn't fail build)
+          - script: |
+              go tool cover -func=coverage.out | tail -1
+            displayName: 'Report test coverage'
             workingDirectory: '$(Build.SourcesDirectory)'
             continueOnError: true
 
@@ -53,10 +65,19 @@ stages:
             displayName: 'Build binary'
             workingDirectory: '$(Build.SourcesDirectory)'
 
-          # Copy necessary files
+          # Security: Check for vulnerabilities in dependencies
+          - script: |
+              go install golang.org/x/vuln/cmd/govulncheck@latest
+              govulncheck ./... || true
+            displayName: 'Security vulnerability scan'
+            workingDirectory: '$(Build.SourcesDirectory)'
+            continueOnError: true
+
+          # Copy necessary files including migrations
           - script: |
               cp Dockerfile $(Build.ArtifactStagingDirectory)/
               cp -r prometheus.yml $(Build.ArtifactStagingDirectory)/ 2>/dev/null || true
+              cp -r migrations $(Build.ArtifactStagingDirectory)/ 2>/dev/null || true
             displayName: 'Copy deployment files'
             workingDirectory: '$(Build.SourcesDirectory)'
 
@@ -86,6 +107,17 @@ stages:
                 # Download artifact
                 - download: current
                   artifact: backend-drop
+
+                # Run database migrations before deployment
+                - script: |
+                    echo "Running database migrations..."
+                    # Install golang-migrate
+                    curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+                    ./migrate -path $(Pipeline.Workspace)/backend-drop/migrations -database "$(DB_URL)" up
+                  displayName: 'Run database migrations'
+                  env:
+                    DB_URL: $(DATABASE_URL)
+                  condition: and(succeeded(), ne(variables['DATABASE_URL'], ''))
 
                 # Deploy to Azure App Service
                 - task: AzureWebApp@1

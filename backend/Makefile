@@ -66,12 +66,26 @@ docker-stop:
 docker-logs:
 	docker-compose logs -f api
 
-# Database migration
+# Database migrations (requires golang-migrate)
+# Install: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+MIGRATE=migrate
+MIGRATIONS_PATH=./migrations
+DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)
+
 migrate-up:
-	$(GOCMD) run ./cmd/api migrate up
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" up
 
 migrate-down:
-	$(GOCMD) run ./cmd/api migrate down
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" down 1
+
+migrate-version:
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" version
+
+migrate-force:
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" force $(VERSION)
+
+migrate-create:
+	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $(NAME)
 
 # Generate API documentation
 docs:
@@ -86,21 +100,28 @@ install-tools:
 	go install github.com/air-verse/air@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/swaggo/swag/cmd/swag@latest
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  deps          - Download and tidy dependencies"
-	@echo "  build         - Build the application"
-	@echo "  run           - Run the application"
-	@echo "  test          - Run tests"
-	@echo "  test-coverage - Run tests with coverage report"
-	@echo "  clean         - Remove build artifacts"
-	@echo "  fmt           - Format code"
-	@echo "  lint          - Lint code"
-	@echo "  docker-build  - Build Docker image"
-	@echo "  docker-run    - Run with Docker Compose"
-	@echo "  docker-stop   - Stop Docker Compose"
-	@echo "  docker-logs   - View application logs"
-	@echo "  dev           - Run with hot reload"
-	@echo "  install-tools - Install development tools"
+	@echo "  deps            - Download and tidy dependencies"
+	@echo "  build           - Build the application"
+	@echo "  run             - Run the application"
+	@echo "  test            - Run tests"
+	@echo "  test-coverage   - Run tests with coverage report"
+	@echo "  clean           - Remove build artifacts"
+	@echo "  fmt             - Format code"
+	@echo "  lint            - Lint code"
+	@echo "  docker-build    - Build Docker image"
+	@echo "  docker-run      - Run with Docker Compose"
+	@echo "  docker-stop     - Stop Docker Compose"
+	@echo "  docker-logs     - View application logs"
+	@echo "  dev             - Run with hot reload"
+	@echo "  install-tools   - Install development tools"
+	@echo ""
+	@echo "Database migrations:"
+	@echo "  migrate-up      - Run all pending migrations"
+	@echo "  migrate-down    - Rollback last migration"
+	@echo "  migrate-version - Show current migration version"
+	@echo "  migrate-create  - Create new migration (NAME=xxx)"

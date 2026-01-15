@@ -90,7 +90,7 @@ export default function LandingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="min-h-screen w-full bg-slate-950 text-white overflow-hidden flex flex-col items-center">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {/* Gradient Orbs */}
@@ -103,7 +103,7 @@ export default function LandingPage() {
       </div>
 
       {/* Header */}
-      <header className="relative border-b border-white/10 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="relative w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -140,7 +140,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative container mx-auto py-24 md:py-32 px-4">
+      <section className="relative w-full max-w-7xl mx-auto py-24 md:py-32 px-4">
         <div className={cn(
           "max-w-5xl mx-auto text-center space-y-8 transition-all duration-1000",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
@@ -296,7 +296,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="relative container mx-auto py-16 border-y border-white/5 px-4">
+      <section className="relative w-full max-w-7xl mx-auto py-16 border-y border-white/5 px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((stat, index) => (
             <div
@@ -320,7 +320,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="relative container mx-auto py-24 px-4">
+      <section id="features" className="relative w-full max-w-7xl mx-auto py-24 px-4">
         <div className={cn(
           "text-center mb-16 transition-all duration-700",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -412,7 +412,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative container mx-auto py-24 px-4">
+      <section className="relative w-full max-w-7xl mx-auto py-24 px-4">
         <div className={cn(
           "max-w-4xl mx-auto transition-all duration-700",
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -471,8 +471,8 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative border-t border-white/5 py-12 bg-slate-950/50">
-        <div className="container mx-auto px-4">
+      <footer className="relative w-full border-t border-white/5 py-12 bg-slate-950/50">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">

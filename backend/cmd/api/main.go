@@ -15,7 +15,9 @@ import (
 	"github.com/cloudplatform/backend/internal/compute"
 	"github.com/cloudplatform/backend/internal/config"
 	"github.com/cloudplatform/backend/internal/database"
+	"github.com/cloudplatform/backend/internal/health"
 	"github.com/cloudplatform/backend/internal/iam"
+	"github.com/cloudplatform/backend/internal/metrics"
 	"github.com/cloudplatform/backend/internal/middleware"
 	"github.com/cloudplatform/backend/internal/network"
 	"github.com/cloudplatform/backend/pkg/logger"
@@ -25,6 +27,8 @@ import (
 	"github.com/go-chi/cors"
 	"gorm.io/gorm"
 )
+
+const version = "1.0.0"
 
 func main() {
 	// Load configuration
@@ -47,16 +51,23 @@ func main() {
 	db, err := database.Connect(&cfg.Database)
 	if err != nil {
 		log.Error("failed to connect to database", "error", err)
-		// Continue without database for development
-		log.Warn("running without database connection - using mock data")
+		if cfg.IsProduction() {
+			log.Error("database connection is required in production")
+			os.Exit(1)
+		}
+		// Only allow running without DB in development
+		log.Warn("running without database connection - using mock data (DEVELOPMENT ONLY)")
 	} else {
 		// Run migrations
 		if err := database.Migrate(db); err != nil {
 			log.Error("failed to run migrations", "error", err)
+			if cfg.IsProduction() {
+				os.Exit(1)
+			}
 		}
 
-		// Seed default data in development
-		if cfg.Server.Environment == "development" {
+		// Seed default data in development only
+		if cfg.IsDevelopment() {
 			if err := database.SeedDefaultData(db); err != nil {
 				log.Error("failed to seed default data", "error", err)
 			}
@@ -76,13 +87,19 @@ func main() {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(&cfg.JWT)
 
+	// Initialize health checker
+	healthChecker := health.NewChecker(db, version)
+
 	// Create router
 	r := chi.NewRouter()
 
-	// Global middleware
+	// Global middleware stack (order matters!)
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
+	r.Use(middleware.SecureAPIHeaders(cfg.IsProduction())) // Security headers
+	r.Use(metrics.Middleware)                               // Metrics collection
 	r.Use(middleware.RequestLogger(log))
+	r.Use(middleware.AuditLogger(log, nil)) // Audit logging
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 
@@ -110,13 +127,11 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		response.OK(w, map[string]string{
-			"status":  "healthy",
-			"version": "1.0.0",
-		})
-	})
+	// Health and observability endpoints
+	r.Get("/health", healthChecker.Handler())
+	r.Get("/ready", healthChecker.ReadinessHandler())
+	r.Get("/live", health.LivenessHandler())
+	r.Get("/metrics", metrics.Get().Handler())
 
 	// API Routes
 	r.Route("/api/v1", func(r chi.Router) {
@@ -328,7 +343,11 @@ func main() {
 		fmt.Println("  POST   /api/v1/vms               - Create VM")
 		fmt.Println("  GET    /api/v1/vpcs              - List VPCs")
 		fmt.Println("  GET    /api/v1/billing/usage     - Get usage summary")
-		fmt.Println("  GET    /health                   - Health check")
+		fmt.Println("\nObservability:")
+		fmt.Println("  GET    /health                   - Detailed health check")
+		fmt.Println("  GET    /ready                    - Readiness probe")
+		fmt.Println("  GET    /live                     - Liveness probe")
+		fmt.Println("  GET    /metrics                  - Prometheus metrics")
 		fmt.Println()
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -502,16 +521,9 @@ func getPlatformStats(db *gorm.DB) http.HandlerFunc {
 func listDatacenters(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var datacenters []database.Datacenter
-		db.Find(&datacenters)
-
-		// Return mock data if empty
-		if len(datacenters) == 0 {
-			datacenters = []database.Datacenter{
-				{Name: "US-East-1", Code: "us-east-1", Location: "Virginia, USA", Region: "us-east", Status: "active"},
-				{Name: "US-West-1", Code: "us-west-1", Location: "California, USA", Region: "us-west", Status: "active"},
-				{Name: "EU-West-1", Code: "eu-west-1", Location: "Dublin, Ireland", Region: "eu-west", Status: "active"},
-				{Name: "AP-South-1", Code: "ap-south-1", Location: "Mumbai, India", Region: "ap-south", Status: "active"},
-			}
+		if err := db.Find(&datacenters).Error; err != nil {
+			response.InternalError(w, "failed to fetch datacenters")
+			return
 		}
 		response.OK(w, datacenters)
 	}
@@ -522,14 +534,8 @@ func getDatacenter(db *gorm.DB) http.HandlerFunc {
 		dcID := chi.URLParam(r, "id")
 		var datacenter database.Datacenter
 		if err := db.Where("id = ?", dcID).First(&datacenter).Error; err != nil {
-			// Return mock data
-			datacenter = database.Datacenter{
-				Name:     "US-East-1",
-				Code:     "us-east-1",
-				Location: "Virginia, USA",
-				Region:   "us-east",
-				Status:   "active",
-			}
+			response.NotFound(w, "datacenter")
+			return
 		}
 		response.OK(w, datacenter)
 	}

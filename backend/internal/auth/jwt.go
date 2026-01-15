@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -51,6 +53,13 @@ func (s *JWTService) GenerateRefreshToken(userID, email, orgID string) (string, 
 // generateToken creates a JWT with the given parameters
 func (s *JWTService) generateToken(userID, email, orgID string, roles []string, tokenType TokenType, ttl time.Duration) (string, error) {
 	now := time.Now()
+
+	// Generate unique token ID for blacklisting
+	tokenID, err := generateTokenID()
+	if err != nil {
+		return "", err
+	}
+
 	claims := Claims{
 		UserID:         userID,
 		Email:          email,
@@ -58,6 +67,7 @@ func (s *JWTService) generateToken(userID, email, orgID string, roles []string, 
 		Roles:          roles,
 		TokenType:      tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        tokenID,
 			Issuer:    s.config.Issuer,
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -68,6 +78,15 @@ func (s *JWTService) generateToken(userID, email, orgID string, roles []string, 
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.config.Secret))
+}
+
+// generateTokenID creates a unique token identifier
+func generateTokenID() (string, error) {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 // ValidateToken validates a JWT and returns the claims
@@ -88,7 +107,27 @@ func (s *JWTService) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 
+	// Check if token is blacklisted
+	if claims.ID != "" && GetBlacklist().IsBlacklisted(claims.ID) {
+		return nil, errors.New("token has been revoked")
+	}
+
 	return claims, nil
+}
+
+// RevokeToken adds a token to the blacklist
+func (s *JWTService) RevokeToken(tokenString string) error {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil {
+		// Token might already be invalid, but we should still try to parse it
+		// to get the expiration for cleanup
+		return nil
+	}
+
+	if claims.ID != "" && claims.ExpiresAt != nil {
+		GetBlacklist().Add(claims.ID, claims.ExpiresAt.Time)
+	}
+	return nil
 }
 
 // ValidateAccessToken validates an access token

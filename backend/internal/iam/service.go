@@ -269,10 +269,31 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*auth.
 	return tokens, nil
 }
 
-// Logout invalidates user session
+// Logout invalidates user session and revokes tokens
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
+	// Revoke the refresh token by adding it to the blacklist
+	s.jwtService.RevokeToken(refreshToken)
+
+	// Delete the session from database
 	return s.db.WithContext(ctx).
 		Where("refresh_token = ?", refreshToken).
+		Delete(&database.Session{}).Error
+}
+
+// LogoutAll invalidates all sessions for a user
+func (s *Service) LogoutAll(ctx context.Context, userID string) error {
+	// Get all sessions for the user
+	var sessions []database.Session
+	s.db.WithContext(ctx).Where("user_id = ?", userID).Find(&sessions)
+
+	// Revoke all refresh tokens
+	for _, session := range sessions {
+		s.jwtService.RevokeToken(session.RefreshToken)
+	}
+
+	// Delete all sessions
+	return s.db.WithContext(ctx).
+		Where("user_id = ?", userID).
 		Delete(&database.Session{}).Error
 }
 
@@ -373,8 +394,8 @@ func (s *Service) ChangePassword(ctx context.Context, userID string, req ChangeP
 		return errors.DatabaseError(err)
 	}
 
-	// Invalidate all sessions except current
-	s.db.Where("user_id = ?", userID).Delete(&database.Session{})
+	// Invalidate all sessions and revoke tokens (security best practice)
+	s.LogoutAll(ctx, userID)
 
 	return nil
 }

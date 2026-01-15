@@ -2,6 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -669,5 +672,115 @@ type Payment struct {
 // JSON type for PostgreSQL JSONB
 type JSON map[string]interface{}
 
+// Scan implements sql.Scanner for JSON
+func (j *JSON) Scan(value interface{}) error {
+	if value == nil {
+		*j = make(map[string]interface{})
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return fmt.Errorf("failed to scan JSON: expected []byte or string, got %T", value)
+	}
+
+	if len(bytes) == 0 || string(bytes) == "{}" {
+		*j = make(map[string]interface{})
+		return nil
+	}
+	return json.Unmarshal(bytes, j)
+}
+
+// Value implements driver.Valuer for JSON
+func (j JSON) Value() (driver.Value, error) {
+	if j == nil {
+		return "{}", nil
+	}
+	return json.Marshal(j)
+}
+
 // StringArray type for PostgreSQL text[]
 type StringArray []string
+
+// Scan implements sql.Scanner for StringArray
+func (s *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*s = []string{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to scan StringArray: expected []byte, got %T", value)
+	}
+	// PostgreSQL array format: {val1,val2,val3}
+	str := string(bytes)
+	if str == "{}" || str == "" {
+		*s = []string{}
+		return nil
+	}
+	// Remove braces and split
+	str = str[1 : len(str)-1]
+	*s = splitArrayString(str)
+	return nil
+}
+
+// Value implements driver.Valuer for StringArray
+func (s StringArray) Value() (driver.Value, error) {
+	if s == nil || len(s) == 0 {
+		return "{}", nil
+	}
+	return "{" + joinArrayString(s) + "}", nil
+}
+
+func splitArrayString(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	var result []string
+	var current string
+	inQuotes := false
+	for _, c := range s {
+		if c == '"' {
+			inQuotes = !inQuotes
+		} else if c == ',' && !inQuotes {
+			result = append(result, current)
+			current = ""
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
+func joinArrayString(arr []string) string {
+	var result string
+	for i, s := range arr {
+		if i > 0 {
+			result += ","
+		}
+		// Quote strings that contain special characters
+		if containsSpecial(s) {
+			result += "\"" + s + "\""
+		} else {
+			result += s
+		}
+	}
+	return result
+}
+
+func containsSpecial(s string) bool {
+	for _, c := range s {
+		if c == ',' || c == '"' || c == '{' || c == '}' {
+			return true
+		}
+	}
+	return false
+}

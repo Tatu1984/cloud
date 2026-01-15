@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/cloudplatform/backend/internal/middleware"
 	"github.com/cloudplatform/backend/pkg/errors"
@@ -23,10 +24,13 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers IAM routes
 func (h *Handler) RegisterRoutes(r chi.Router, authMiddleware *middleware.AuthMiddleware) {
-	// Public routes
-	r.Post("/auth/login", h.Login)
-	r.Post("/auth/register", h.Register)
-	r.Post("/auth/refresh", h.RefreshToken)
+	// Rate limiter for auth endpoints: 10 requests per minute per IP
+	authRateLimiter := middleware.IPRateLimiter(10, time.Minute, 15)
+
+	// Public routes with rate limiting
+	r.With(authRateLimiter).Post("/auth/login", h.Login)
+	r.With(authRateLimiter).Post("/auth/register", h.Register)
+	r.With(authRateLimiter).Post("/auth/refresh", h.RefreshToken)
 
 	// Protected routes
 	r.Group(func(r chi.Router) {

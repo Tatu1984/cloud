@@ -225,13 +225,52 @@ func getEnvSlice(key string, defaultValue []string) []string {
 
 // Validate checks if required configuration is present
 func (c *Config) Validate() error {
+	var errs []string
+
+	// Always validate JWT secret length (should be at least 32 bytes for HS256)
+	if len(c.JWT.Secret) < 32 {
+		errs = append(errs, "JWT_SECRET must be at least 32 characters")
+	}
+
 	if c.Server.Environment == "production" {
+		// Reject default/placeholder secrets
 		if c.JWT.Secret == "your-256-bit-secret-key-change-in-production" {
-			log.Fatal("JWT_SECRET must be set in production")
+			errs = append(errs, "JWT_SECRET must be changed from default value in production")
 		}
-		if c.Database.Password == "cloudplatform" {
-			log.Fatal("DB_PASSWORD must be changed in production")
+
+		// Require strong database password
+		if c.Database.Password == "cloudplatform" || c.Database.Password == "" {
+			errs = append(errs, "DB_PASSWORD must be set to a strong value in production")
+		}
+
+		// Require SSL for database in production
+		if c.Database.SSLMode == "disable" {
+			errs = append(errs, "DB_SSL_MODE must not be 'disable' in production (use 'require' or 'verify-full')")
+		}
+
+		// Validate CORS origins are set (not just localhost)
+		corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+		if corsOrigins == "" {
+			errs = append(errs, "CORS_ALLOWED_ORIGINS must be set in production")
 		}
 	}
+
+	if len(errs) > 0 {
+		for _, e := range errs {
+			log.Printf("CONFIG ERROR: %s", e)
+		}
+		log.Fatal("Configuration validation failed. Please fix the above errors.")
+	}
+
 	return nil
+}
+
+// IsProduction returns true if running in production mode
+func (c *Config) IsProduction() bool {
+	return c.Server.Environment == "production"
+}
+
+// IsDevelopment returns true if running in development mode
+func (c *Config) IsDevelopment() bool {
+	return c.Server.Environment == "development"
 }
