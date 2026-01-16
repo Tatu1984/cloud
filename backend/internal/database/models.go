@@ -103,6 +103,24 @@ type APIKey struct {
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
+// ServiceAccount represents a non-human identity for automation
+type ServiceAccount struct {
+	BaseModel
+	Name           string       `gorm:"size:255;not null" json:"name"`
+	Description    string       `gorm:"size:1000" json:"description,omitempty"`
+	OrganizationID string       `gorm:"type:uuid;not null;index" json:"organizationId"`
+	RoleID         string       `gorm:"type:uuid;index" json:"roleId,omitempty"`
+	Status         string       `gorm:"size:20;default:'active'" json:"status"`
+	KeyHash        string       `gorm:"size:255;uniqueIndex" json:"-"`
+	KeyPrefix      string       `gorm:"size:20" json:"keyPrefix"`
+	LastUsedAt     sql.NullTime `json:"lastUsedAt,omitempty"`
+	ExpiresAt      sql.NullTime `json:"expiresAt,omitempty"`
+
+	// Relations
+	Organization Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
+	Role         Role         `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+}
+
 // Session represents a user session
 type Session struct {
 	BaseModel

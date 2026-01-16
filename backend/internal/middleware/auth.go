@@ -7,8 +7,10 @@ import (
 
 	"github.com/cloudplatform/backend/internal/auth"
 	"github.com/cloudplatform/backend/internal/config"
+	"github.com/cloudplatform/backend/internal/database"
 	"github.com/cloudplatform/backend/pkg/errors"
 	"github.com/cloudplatform/backend/pkg/response"
+	"gorm.io/gorm"
 )
 
 // ContextKey type for context keys
@@ -162,4 +164,143 @@ func HasRole(ctx context.Context, role string) bool {
 // IsAdmin checks if user is admin
 func IsAdmin(ctx context.Context) bool {
 	return HasRole(ctx, "admin")
+}
+
+// PermissionChecker provides permission checking functionality
+type PermissionChecker struct {
+	db *gorm.DB
+}
+
+// NewPermissionChecker creates a new permission checker
+func NewPermissionChecker(db *gorm.DB) *PermissionChecker {
+	return &PermissionChecker{db: db}
+}
+
+// RequirePermission checks if user has the required permission
+func (pc *PermissionChecker) RequirePermission(permission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := GetClaims(r.Context())
+			if claims == nil {
+				response.Error(w, errors.Unauthorized("authentication required"))
+				return
+			}
+
+			// Admin role bypasses permission checks
+			for _, role := range claims.Roles {
+				if role == "admin" || role == "super_admin" {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Check if user has the required permission
+			hasPermission, err := pc.hasPermission(r.Context(), claims.UserID, permission)
+			if err != nil {
+				response.Error(w, errors.Internal("failed to check permissions"))
+				return
+			}
+
+			if !hasPermission {
+				response.Error(w, errors.Forbidden("insufficient permissions: requires "+permission))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireAnyPermission checks if user has any of the required permissions
+func (pc *PermissionChecker) RequireAnyPermission(permissions ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := GetClaims(r.Context())
+			if claims == nil {
+				response.Error(w, errors.Unauthorized("authentication required"))
+				return
+			}
+
+			// Admin role bypasses permission checks
+			for _, role := range claims.Roles {
+				if role == "admin" || role == "super_admin" {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Check if user has any of the required permissions
+			for _, permission := range permissions {
+				hasPermission, err := pc.hasPermission(r.Context(), claims.UserID, permission)
+				if err != nil {
+					continue
+				}
+				if hasPermission {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			response.Error(w, errors.Forbidden("insufficient permissions"))
+			return
+		})
+	}
+}
+
+// hasPermission checks if a user has a specific permission
+func (pc *PermissionChecker) hasPermission(ctx context.Context, userID, permissionName string) (bool, error) {
+	// Get user with roles and permissions
+	var user database.User
+	if err := pc.db.WithContext(ctx).
+		Preload("Roles").
+		Preload("Roles.Permissions").
+		Where("id = ? AND deleted_at IS NULL", userID).
+		First(&user).Error; err != nil {
+		return false, err
+	}
+
+	// Check each role's permissions
+	for _, role := range user.Roles {
+		for _, perm := range role.Permissions {
+			if perm.Name == permissionName {
+				return true, nil
+			}
+			// Check for wildcard permissions (e.g., "vm:*" matches "vm:create")
+			if len(perm.Name) > 2 && perm.Name[len(perm.Name)-2:] == ":*" {
+				resource := perm.Name[:len(perm.Name)-2]
+				if len(permissionName) > len(resource)+1 && permissionName[:len(resource)+1] == resource+":" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// GetUserPermissions returns all permissions for the current user
+func (pc *PermissionChecker) GetUserPermissions(ctx context.Context, userID string) ([]string, error) {
+	var user database.User
+	if err := pc.db.WithContext(ctx).
+		Preload("Roles").
+		Preload("Roles.Permissions").
+		Where("id = ? AND deleted_at IS NULL", userID).
+		First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	// Collect unique permissions
+	permSet := make(map[string]bool)
+	for _, role := range user.Roles {
+		for _, perm := range role.Permissions {
+			permSet[perm.Name] = true
+		}
+	}
+
+	result := make([]string, 0, len(permSet))
+	for perm := range permSet {
+		result = append(result, perm)
+	}
+
+	return result, nil
 }

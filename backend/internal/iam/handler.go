@@ -15,12 +15,30 @@ import (
 
 // Handler handles IAM HTTP requests
 type Handler struct {
-	service *Service
+	service                 *Service
+	roleHandler             *RoleHandler
+	permissionHandler       *PermissionHandler
+	serviceAccountHandler   *ServiceAccountHandler
 }
 
 // NewHandler creates a new IAM handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// NewHandlerWithRBAC creates a new IAM handler with full RBAC support
+func NewHandlerWithRBAC(
+	service *Service,
+	roleService *RoleService,
+	permissionService *PermissionService,
+	serviceAccountService *ServiceAccountService,
+) *Handler {
+	return &Handler{
+		service:               service,
+		roleHandler:           NewRoleHandler(roleService),
+		permissionHandler:     NewPermissionHandler(permissionService),
+		serviceAccountHandler: NewServiceAccountHandler(serviceAccountService),
+	}
 }
 
 // RegisterRoutes registers IAM routes
@@ -52,6 +70,17 @@ func (h *Handler) RegisterRoutes(r chi.Router, authMiddleware *middleware.AuthMi
 		r.Get("/users/{id}", h.GetUser)
 		r.Post("/users/invite", h.InviteUser)
 		r.Delete("/users/{id}", h.DeleteUser)
+
+		// RBAC routes - only register if handlers are available
+		if h.roleHandler != nil {
+			h.roleHandler.RegisterRoutes(r)
+		}
+		if h.permissionHandler != nil {
+			h.permissionHandler.RegisterRoutes(r)
+		}
+		if h.serviceAccountHandler != nil {
+			h.serviceAccountHandler.RegisterRoutes(r)
+		}
 	})
 }
 

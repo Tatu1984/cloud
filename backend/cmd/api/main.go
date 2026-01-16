@@ -80,8 +80,13 @@ func main() {
 	networkService := network.NewService(db, &cfg.ZeroTier)
 	billingService := billing.NewService(db)
 
-	// Initialize handlers
-	iamHandler := iam.NewHandler(iamService)
+	// Initialize RBAC services
+	roleService := iam.NewRoleService(db)
+	permissionService := iam.NewPermissionService(db)
+	serviceAccountService := iam.NewServiceAccountService(db)
+
+	// Initialize handlers with RBAC support
+	iamHandler := iam.NewHandlerWithRBAC(iamService, roleService, permissionService, serviceAccountService)
 	computeHandler := compute.NewHandler(computeService)
 
 	// Initialize middleware

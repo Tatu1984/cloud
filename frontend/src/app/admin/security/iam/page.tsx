@@ -12,6 +12,8 @@ import {
   Trash2,
   Copy,
   CheckCircle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,239 +63,157 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-// Mock IAM policies
-const mockPolicies = [
-  {
-    id: "policy-001",
-    name: "TenantAdmin",
-    description: "Full administrative access for tenant resources",
-    type: "managed",
-    attachedCount: 15,
-    statements: 12,
-    createdAt: "2023-06-01T00:00:00Z",
-    updatedAt: "2024-02-15T10:00:00Z",
-  },
-  {
-    id: "policy-002",
-    name: "VMOperator",
-    description: "Create, start, stop, and delete virtual machines",
-    type: "managed",
-    attachedCount: 42,
-    statements: 8,
-    createdAt: "2023-06-01T00:00:00Z",
-    updatedAt: "2024-01-20T14:30:00Z",
-  },
-  {
-    id: "policy-003",
-    name: "ReadOnlyAccess",
-    description: "View-only access to all resources",
-    type: "managed",
-    attachedCount: 28,
-    statements: 5,
-    createdAt: "2023-06-01T00:00:00Z",
-    updatedAt: "2023-12-10T09:00:00Z",
-  },
-  {
-    id: "policy-004",
-    name: "NetworkAdmin",
-    description: "Manage VPCs, subnets, and security groups",
-    type: "managed",
-    attachedCount: 8,
-    statements: 15,
-    createdAt: "2023-08-15T00:00:00Z",
-    updatedAt: "2024-03-01T11:00:00Z",
-  },
-  {
-    id: "policy-005",
-    name: "BillingAccess",
-    description: "View billing information and manage payment methods",
-    type: "managed",
-    attachedCount: 12,
-    statements: 6,
-    createdAt: "2023-07-01T00:00:00Z",
-    updatedAt: "2023-11-05T16:00:00Z",
-  },
-  {
-    id: "policy-006",
-    name: "CustomDatabasePolicy",
-    description: "Custom policy for database team",
-    type: "custom",
-    attachedCount: 4,
-    statements: 10,
-    createdAt: "2024-01-10T00:00:00Z",
-    updatedAt: "2024-03-10T08:00:00Z",
-  },
-];
+// Import IAM hooks
+import {
+  useRoles,
+  useRoleMembers,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+  useUpdateRolePermissions,
+  usePermissionsGrouped,
+  useServiceAccounts,
+  useCreateServiceAccount,
+  useUpdateServiceAccount,
+  useDeleteServiceAccount,
+  useRotateServiceAccountKey,
+  useActivateServiceAccount,
+  useDeactivateServiceAccount,
+} from "@/hooks/use-iam";
 
-// Mock roles
-const mockRoles = [
-  {
-    id: "role-001",
-    name: "SuperAdmin",
-    description: "Full platform administrative access",
-    type: "system",
-    policies: ["TenantAdmin", "NetworkAdmin", "BillingAccess"],
-    members: 3,
-  },
-  {
-    id: "role-002",
-    name: "TenantOperator",
-    description: "Manage tenant resources",
-    type: "system",
-    policies: ["VMOperator", "ReadOnlyAccess"],
-    members: 25,
-  },
-  {
-    id: "role-003",
-    name: "SecurityAuditor",
-    description: "Security audit and compliance",
-    type: "custom",
-    policies: ["ReadOnlyAccess"],
-    members: 5,
-  },
-  {
-    id: "role-004",
-    name: "BillingManager",
-    description: "Financial operations",
-    type: "custom",
-    policies: ["BillingAccess", "ReadOnlyAccess"],
-    members: 8,
-  },
-];
-
-// Mock service accounts
-const mockServiceAccounts = [
-  {
-    id: "sa-001",
-    name: "backup-service",
-    description: "Automated backup service",
-    role: "TenantOperator",
-    lastUsed: "2024-03-15T10:30:00Z",
-    status: "active",
-  },
-  {
-    id: "sa-002",
-    name: "monitoring-agent",
-    description: "Prometheus monitoring",
-    role: "ReadOnlyAccess",
-    lastUsed: "2024-03-15T10:32:00Z",
-    status: "active",
-  },
-  {
-    id: "sa-003",
-    name: "ci-cd-pipeline",
-    description: "CI/CD deployment automation",
-    role: "VMOperator",
-    lastUsed: "2024-03-15T09:45:00Z",
-    status: "active",
-  },
-  {
-    id: "sa-004",
-    name: "old-service",
-    description: "Deprecated service",
-    role: "ReadOnlyAccess",
-    lastUsed: "2024-01-05T12:00:00Z",
-    status: "inactive",
-  },
-];
-
-interface Policy {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  attachedCount: number;
-  statements: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  policies: string[];
-  members: number;
-}
-
-interface ServiceAccount {
-  id: string;
-  name: string;
-  description: string;
-  role: string;
-  lastUsed: string;
-  status: string;
-}
+import type {
+  Role,
+  Permission,
+  PermissionGroup,
+  ServiceAccount,
+  ServiceAccountWithKey,
+} from "@/lib/api/iam";
 
 export default function IAMPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Policy state
-  const [viewPolicyDialogOpen, setViewPolicyDialogOpen] = useState(false);
-  const [editPolicyDialogOpen, setEditPolicyDialogOpen] = useState(false);
-  const [deletePolicyDialogOpen, setDeletePolicyDialogOpen] = useState(false);
-  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+  // API hooks
+  const { data: roles, isLoading: rolesLoading, refetch: refetchRoles } = useRoles();
+  const { data: permissionGroups, isLoading: permissionsLoading } = usePermissionsGrouped();
+  const { data: serviceAccounts, isLoading: serviceAccountsLoading, refetch: refetchServiceAccounts } = useServiceAccounts();
 
-  // Role state
+  const createRoleMutation = useCreateRole();
+  const updateRoleMutation = useUpdateRole();
+  const deleteRoleMutation = useDeleteRole();
+  const updateRolePermissionsMutation = useUpdateRolePermissions();
+
+  const createServiceAccountMutation = useCreateServiceAccount();
+  const updateServiceAccountMutation = useUpdateServiceAccount();
+  const deleteServiceAccountMutation = useDeleteServiceAccount();
+  const rotateKeyMutation = useRotateServiceAccountKey();
+  const activateServiceAccountMutation = useActivateServiceAccount();
+  const deactivateServiceAccountMutation = useDeactivateServiceAccount();
+
+  // Dialog states
+  const [createRoleDialogOpen, setCreateRoleDialogOpen] = useState(false);
   const [viewRoleDialogOpen, setViewRoleDialogOpen] = useState(false);
-  const [editPoliciesDialogOpen, setEditPoliciesDialogOpen] = useState(false);
+  const [editPermissionsDialogOpen, setEditPermissionsDialogOpen] = useState(false);
   const [viewMembersDialogOpen, setViewMembersDialogOpen] = useState(false);
   const [deleteRoleDialogOpen, setDeleteRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
-  // Service Account state
-  const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [createServiceAccountDialogOpen, setCreateServiceAccountDialogOpen] = useState(false);
+  const [editServiceAccountDialogOpen, setEditServiceAccountDialogOpen] = useState(false);
   const [deleteServiceAccountDialogOpen, setDeleteServiceAccountDialogOpen] = useState(false);
   const [selectedServiceAccount, setSelectedServiceAccount] = useState<ServiceAccount | null>(null);
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
-  // Policy handlers
-  const handleViewPolicy = (policy: Policy) => {
-    setSelectedPolicy(policy);
-    setViewPolicyDialogOpen(true);
-  };
+  // Form states
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDisplayName, setNewRoleDisplayName] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
 
-  const handleEditPolicy = (policy: Policy) => {
-    setSelectedPolicy(policy);
-    setEditPolicyDialogOpen(true);
-  };
+  const [newServiceAccountName, setNewServiceAccountName] = useState("");
+  const [newServiceAccountDescription, setNewServiceAccountDescription] = useState("");
+  const [newServiceAccountRoleId, setNewServiceAccountRoleId] = useState("");
 
-  const handleDuplicatePolicy = (policy: Policy) => {
-    toast({
-      title: "Policy Duplicated",
-      description: `${policy.name} has been duplicated as "${policy.name}-copy".`,
-    });
-  };
+  // Role Members hook (only when a role is selected)
+  const { data: roleMembers, isLoading: membersLoading } = useRoleMembers(
+    selectedRole?.id || "",
+    { enabled: !!selectedRole && viewMembersDialogOpen }
+  );
 
-  const handleDeletePolicy = (policy: Policy) => {
-    setSelectedPolicy(policy);
-    setDeletePolicyDialogOpen(true);
-  };
+  // Flatten permissions for easier access
+  const allPermissions = permissionGroups?.flatMap(g => g.permissions) || [];
 
-  const confirmDeletePolicy = () => {
-    toast({
-      title: "Policy Deleted",
-      description: `${selectedPolicy?.name} has been deleted.`,
-    });
-    setDeletePolicyDialogOpen(false);
-    setSelectedPolicy(null);
-  };
+  // Filter functions
+  const filteredRoles = roles?.filter(role =>
+    role.name.toLowerCase().includes(search.toLowerCase()) ||
+    role.displayName.toLowerCase().includes(search.toLowerCase())
+  ) || [];
+
+  const filteredServiceAccounts = serviceAccounts?.filter(sa =>
+    sa.name.toLowerCase().includes(search.toLowerCase()) ||
+    (sa.description?.toLowerCase().includes(search.toLowerCase()))
+  ) || [];
 
   // Role handlers
+  const handleCreateRole = async () => {
+    try {
+      await createRoleMutation.mutateAsync({
+        name: newRoleName,
+        displayName: newRoleDisplayName,
+        description: newRoleDescription,
+        permissionIds: selectedPermissionIds,
+      });
+      toast({
+        title: "Role Created",
+        description: `${newRoleDisplayName} has been created successfully.`,
+      });
+      setCreateRoleDialogOpen(false);
+      resetRoleForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create role. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleViewRole = (role: Role) => {
     setSelectedRole(role);
     setViewRoleDialogOpen(true);
   };
 
-  const handleEditPolicies = (role: Role) => {
+  const handleEditPermissions = (role: Role) => {
     setSelectedRole(role);
-    setEditPoliciesDialogOpen(true);
+    setSelectedPermissionIds(role.permissions.map(p => p.id));
+    setEditPermissionsDialogOpen(true);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedRole) return;
+    try {
+      await updateRolePermissionsMutation.mutateAsync({
+        id: selectedRole.id,
+        permissionIds: selectedPermissionIds,
+      });
+      toast({
+        title: "Permissions Updated",
+        description: `${selectedRole.displayName} permissions have been updated.`,
+      });
+      setEditPermissionsDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update permissions. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewMembers = (role: Role) => {
@@ -306,34 +226,132 @@ export default function IAMPage() {
     setDeleteRoleDialogOpen(true);
   };
 
-  const confirmDeleteRole = () => {
-    toast({
-      title: "Role Deleted",
-      description: `${selectedRole?.name} has been deleted.`,
-    });
-    setDeleteRoleDialogOpen(false);
-    setSelectedRole(null);
+  const confirmDeleteRole = async () => {
+    if (!selectedRole) return;
+    try {
+      await deleteRoleMutation.mutateAsync(selectedRole.id);
+      toast({
+        title: "Role Deleted",
+        description: `${selectedRole.displayName} has been deleted.`,
+      });
+      setDeleteRoleDialogOpen(false);
+      setSelectedRole(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete role. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetRoleForm = () => {
+    setNewRoleName("");
+    setNewRoleDisplayName("");
+    setNewRoleDescription("");
+    setSelectedPermissionIds([]);
   };
 
   // Service Account handlers
-  const handleRotateKeys = (sa: ServiceAccount) => {
-    toast({
-      title: "Keys Rotated",
-      description: `New keys have been generated for ${sa.name}. Download them now.`,
-    });
+  const handleCreateServiceAccount = async () => {
+    try {
+      const result = await createServiceAccountMutation.mutateAsync({
+        name: newServiceAccountName,
+        description: newServiceAccountDescription,
+        roleId: newServiceAccountRoleId || undefined,
+      });
+      setNewApiKey(result.apiKey);
+      setShowApiKeyDialog(true);
+      toast({
+        title: "Service Account Created",
+        description: `${newServiceAccountName} has been created. Save the API key now!`,
+      });
+      setCreateServiceAccountDialogOpen(false);
+      resetServiceAccountForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create service account. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEditRole = (sa: ServiceAccount) => {
+  const handleRotateKeys = async (sa: ServiceAccount) => {
+    try {
+      const result = await rotateKeyMutation.mutateAsync(sa.id);
+      setNewApiKey(result.apiKey);
+      setShowApiKeyDialog(true);
+      toast({
+        title: "Keys Rotated",
+        description: `New keys have been generated for ${sa.name}. Save the API key now!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to rotate keys. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditServiceAccount = (sa: ServiceAccount) => {
     setSelectedServiceAccount(sa);
-    setEditRoleDialogOpen(true);
+    setNewServiceAccountName(sa.name);
+    setNewServiceAccountDescription(sa.description || "");
+    setNewServiceAccountRoleId(sa.roleId || "");
+    setEditServiceAccountDialogOpen(true);
   };
 
-  const handleToggleServiceAccount = (sa: ServiceAccount) => {
-    const newStatus = sa.status === "active" ? "inactive" : "active";
-    toast({
-      title: `Service Account ${newStatus === "active" ? "Activated" : "Deactivated"}`,
-      description: `${sa.name} is now ${newStatus}.`,
-    });
+  const handleSaveServiceAccount = async () => {
+    if (!selectedServiceAccount) return;
+    try {
+      await updateServiceAccountMutation.mutateAsync({
+        id: selectedServiceAccount.id,
+        data: {
+          name: newServiceAccountName,
+          description: newServiceAccountDescription,
+          roleId: newServiceAccountRoleId || undefined,
+        },
+      });
+      toast({
+        title: "Service Account Updated",
+        description: `${newServiceAccountName} has been updated.`,
+      });
+      setEditServiceAccountDialogOpen(false);
+      setSelectedServiceAccount(null);
+      resetServiceAccountForm();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update service account. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleServiceAccount = async (sa: ServiceAccount) => {
+    try {
+      if (sa.status === "active") {
+        await deactivateServiceAccountMutation.mutateAsync(sa.id);
+        toast({
+          title: "Service Account Deactivated",
+          description: `${sa.name} is now inactive.`,
+        });
+      } else {
+        await activateServiceAccountMutation.mutateAsync(sa.id);
+        toast({
+          title: "Service Account Activated",
+          description: `${sa.name} is now active.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update service account status.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteServiceAccount = (sa: ServiceAccount) => {
@@ -341,85 +359,69 @@ export default function IAMPage() {
     setDeleteServiceAccountDialogOpen(true);
   };
 
-  const confirmDeleteServiceAccount = () => {
-    toast({
-      title: "Service Account Deleted",
-      description: `${selectedServiceAccount?.name} has been deleted.`,
-    });
-    setDeleteServiceAccountDialogOpen(false);
-    setSelectedServiceAccount(null);
+  const confirmDeleteServiceAccount = async () => {
+    if (!selectedServiceAccount) return;
+    try {
+      await deleteServiceAccountMutation.mutateAsync(selectedServiceAccount.id);
+      toast({
+        title: "Service Account Deleted",
+        description: `${selectedServiceAccount.name} has been deleted.`,
+      });
+      setDeleteServiceAccountDialogOpen(false);
+      setSelectedServiceAccount(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete service account. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
+
+  const resetServiceAccountForm = () => {
+    setNewServiceAccountName("");
+    setNewServiceAccountDescription("");
+    setNewServiceAccountRoleId("");
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "API key copied to clipboard.",
+    });
+  };
+
+  const isLoading = rolesLoading || permissionsLoading || serviceAccountsLoading;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">IAM Policies</h1>
+          <h1 className="text-3xl font-bold tracking-tight">IAM Management</h1>
           <p className="text-muted-foreground">
             Identity and access management configuration
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Policy
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create IAM Policy</DialogTitle>
-              <DialogDescription>
-                Define permissions for platform resources
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Policy Name</Label>
-                <Input placeholder="MyCustomPolicy" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Description</Label>
-                <Input placeholder="What this policy allows..." />
-              </div>
-              <div className="grid gap-2">
-                <Label>Policy Document (JSON)</Label>
-                <Textarea
-                  className="font-mono text-sm h-48"
-                  placeholder={`{
-  "Version": "2024-01-01",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["vm:*"],
-      "Resource": "*"
-    }
-  ]
-}`}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Create Policy</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { refetchRoles(); refetchServiceAccounts(); }}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Policies</CardTitle>
+            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockPolicies.length}</div>
+            <div className="text-2xl font-bold">{allPermissions.length}</div>
             <p className="text-xs text-muted-foreground">
-              {mockPolicies.filter((p) => p.type === "managed").length} managed, {mockPolicies.filter((p) => p.type === "custom").length} custom
+              {permissionGroups?.length || 0} resource groups
             </p>
           </CardContent>
         </Card>
@@ -429,8 +431,10 @@ export default function IAMPage() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockRoles.length}</div>
-            <p className="text-xs text-muted-foreground">Permission groups</p>
+            <div className="text-2xl font-bold">{roles?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {roles?.filter(r => r.isSystem).length || 0} system, {roles?.filter(r => !r.isSystem).length || 0} custom
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -439,188 +443,243 @@ export default function IAMPage() {
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockServiceAccounts.length}</div>
+            <div className="text-2xl font-bold">{serviceAccounts?.length || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {mockServiceAccounts.filter((s) => s.status === "active").length} active
+              {serviceAccounts?.filter(s => s.status === "active").length || 0} active
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attachments</CardTitle>
+            <CardTitle className="text-sm font-medium">Members</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockPolicies.reduce((sum, p) => sum + p.attachedCount, 0)}
+              {roles?.reduce((sum, r) => sum + r.memberCount, 0) || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Policy attachments</p>
+            <p className="text-xs text-muted-foreground">Role assignments</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="policies" className="space-y-4">
+      <Tabs defaultValue="roles" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
           <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="permissions">Permissions</TabsTrigger>
           <TabsTrigger value="service-accounts">Service Accounts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="policies" className="space-y-4">
-          <div className="flex items-center gap-4">
+        {/* Roles Tab */}
+        <TabsContent value="roles" className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search policies..."
+                placeholder="Search roles..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8"
               />
             </div>
+            <Dialog open={createRoleDialogOpen} onOpenChange={setCreateRoleDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Role
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create Role</DialogTitle>
+                  <DialogDescription>
+                    Define a new role with specific permissions
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Role Name (identifier)</Label>
+                    <Input
+                      placeholder="my_custom_role"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Display Name</Label>
+                    <Input
+                      placeholder="My Custom Role"
+                      value={newRoleDisplayName}
+                      onChange={(e) => setNewRoleDisplayName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      placeholder="What this role is for..."
+                      value={newRoleDescription}
+                      onChange={(e) => setNewRoleDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Permissions</Label>
+                    <div className="border rounded-md p-4 max-h-60 overflow-y-auto space-y-4">
+                      {permissionGroups?.map((group) => (
+                        <div key={group.resource}>
+                          <h4 className="font-medium mb-2">{group.displayName}</h4>
+                          <div className="grid gap-2 pl-4">
+                            {group.permissions.map((perm) => (
+                              <div key={perm.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={perm.id}
+                                  checked={selectedPermissionIds.includes(perm.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedPermissionIds([...selectedPermissionIds, perm.id]);
+                                    } else {
+                                      setSelectedPermissionIds(selectedPermissionIds.filter(id => id !== perm.id));
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={perm.id} className="text-sm cursor-pointer">
+                                  <span className="font-medium">{perm.name}</span>
+                                  <span className="text-muted-foreground ml-2">- {perm.description}</span>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setCreateRoleDialogOpen(false); resetRoleForm(); }}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
+                    {createRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Role
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>IAM Policies</CardTitle>
-              <CardDescription>Permission policies for resource access</CardDescription>
+              <CardTitle>Roles</CardTitle>
+              <CardDescription>Permission groups with attached users</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Policy Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Statements</TableHead>
-                    <TableHead>Attached</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockPolicies.map((policy) => (
-                    <TableRow key={policy.id}>
-                      <TableCell className="font-medium">{policy.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={policy.type === "managed" ? "default" : "secondary"}>
-                          {policy.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground max-w-xs truncate">
-                        {policy.description}
-                      </TableCell>
-                      <TableCell>{policy.statements}</TableCell>
-                      <TableCell>{policy.attachedCount}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(policy.updatedAt), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleViewPolicy(policy)}>
-                              View Policy
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleEditPolicy(policy)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleDuplicatePolicy(policy)}>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeletePolicy(policy)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {rolesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Role Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Permissions</TableHead>
+                      <TableHead>Members</TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRoles.map((role) => (
+                      <TableRow key={role.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{role.displayName}</div>
+                            <div className="text-xs text-muted-foreground">{role.name}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={role.isSystem ? "default" : "outline"}>
+                            {role.isSystem ? "system" : "custom"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-xs truncate">
+                          {role.description}
+                        </TableCell>
+                        <TableCell>{role.permissions.length}</TableCell>
+                        <TableCell>{role.memberCount}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => handleViewRole(role)}>
+                                View Role
+                              </DropdownMenuItem>
+                              {!role.isSystem && (
+                                <DropdownMenuItem onSelect={() => handleEditPermissions(role)}>
+                                  Edit Permissions
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onSelect={() => handleViewMembers(role)}>
+                                View Members
+                              </DropdownMenuItem>
+                              {!role.isSystem && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteRole(role)}>
+                                    Delete Role
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="roles" className="space-y-4">
+        {/* Permissions Tab */}
+        <TabsContent value="permissions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Roles</CardTitle>
-              <CardDescription>Permission groups with attached policies</CardDescription>
+              <CardTitle>Permissions</CardTitle>
+              <CardDescription>Available permissions grouped by resource</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Role Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Policies</TableHead>
-                    <TableHead>Members</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockRoles.map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={role.type === "system" ? "default" : "outline"}>
-                          {role.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {role.description}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {role.policies.map((policy) => (
-                            <Badge key={policy} variant="secondary" className="text-xs">
-                              {policy}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>{role.members}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleViewRole(role)}>
-                              View Role
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleEditPolicies(role)}>
-                              Edit Policies
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleViewMembers(role)}>
-                              View Members
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteRole(role)}>
-                              Delete Role
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+              {permissionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {permissionGroups?.map((group) => (
+                    <div key={group.resource}>
+                      <h3 className="font-semibold text-lg mb-3">{group.displayName}</h3>
+                      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        {group.permissions.map((perm) => (
+                          <div key={perm.id} className="border rounded-md p-3">
+                            <div className="font-medium text-sm">{perm.name}</div>
+                            <div className="text-xs text-muted-foreground">{perm.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Service Accounts Tab */}
         <TabsContent value="service-accounts" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -628,204 +687,166 @@ export default function IAMPage() {
                 <CardTitle>Service Accounts</CardTitle>
                 <CardDescription>Non-human identities for automation</CardDescription>
               </div>
-              <Button size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Service Account
-              </Button>
+              <Dialog open={createServiceAccountDialogOpen} onOpenChange={setCreateServiceAccountDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Service Account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Service Account</DialogTitle>
+                    <DialogDescription>
+                      Create a new service account for API access
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>Name</Label>
+                      <Input
+                        placeholder="my-service-account"
+                        value={newServiceAccountName}
+                        onChange={(e) => setNewServiceAccountName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        placeholder="What this service account is for..."
+                        value={newServiceAccountDescription}
+                        onChange={(e) => setNewServiceAccountDescription(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Role</Label>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        value={newServiceAccountRoleId}
+                        onChange={(e) => setNewServiceAccountRoleId(e.target.value)}
+                      >
+                        <option value="">No role assigned</option>
+                        {roles?.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setCreateServiceAccountDialogOpen(false); resetServiceAccountForm(); }}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateServiceAccount} disabled={createServiceAccountMutation.isPending}>
+                      {createServiceAccountMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Used</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockServiceAccounts.map((sa) => (
-                    <TableRow key={sa.id}>
-                      <TableCell className="font-medium font-mono">{sa.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {sa.description}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{sa.role}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={sa.status === "active" ? "default" : "secondary"}>
-                          {sa.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(sa.lastUsed), "MMM d, HH:mm")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleRotateKeys(sa)}>
-                              <Key className="mr-2 h-4 w-4" />
-                              Rotate Keys
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleEditRole(sa)}>
-                              Edit Role
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {sa.status === "active" ? (
-                              <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
-                                Deactivate
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
-                                Activate
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteServiceAccount(sa)}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+              {serviceAccountsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Used</TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredServiceAccounts.map((sa) => (
+                      <TableRow key={sa.id}>
+                        <TableCell className="font-medium font-mono">{sa.name}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {sa.description}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{sa.roleName || "No role"}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={sa.status === "active" ? "default" : "secondary"}>
+                            {sa.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {sa.lastUsedAt ? format(new Date(sa.lastUsedAt), "MMM d, HH:mm") : "Never"}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => handleRotateKeys(sa)}>
+                                <Key className="mr-2 h-4 w-4" />
+                                Rotate Keys
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleEditServiceAccount(sa)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {sa.status === "active" ? (
+                                <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
+                                  Deactivate
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onSelect={() => handleToggleServiceAccount(sa)}>
+                                  Activate
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteServiceAccount(sa)}>
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* View Policy Dialog */}
-      <Dialog open={viewPolicyDialogOpen} onOpenChange={setViewPolicyDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{selectedPolicy?.name}</DialogTitle>
-            <DialogDescription>{selectedPolicy?.description}</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div>
-                <Label className="text-muted-foreground">Type</Label>
-                <p className="font-medium">{selectedPolicy?.type}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Statements</Label>
-                <p className="font-medium">{selectedPolicy?.statements}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Attached To</Label>
-                <p className="font-medium">{selectedPolicy?.attachedCount} entities</p>
-              </div>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Policy Document</Label>
-              <pre className="bg-muted p-4 rounded-md text-sm mt-2 overflow-x-auto">
-{`{
-  "Version": "2024-01-01",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["vm:*"],
-      "Resource": "*"
-    }
-  ]
-}`}
-              </pre>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewPolicyDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Policy Dialog */}
-      <Dialog open={editPolicyDialogOpen} onOpenChange={setEditPolicyDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Policy</DialogTitle>
-            <DialogDescription>Update policy configuration</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Policy Name</Label>
-              <Input defaultValue={selectedPolicy?.name} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Description</Label>
-              <Input defaultValue={selectedPolicy?.description} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Policy Document (JSON)</Label>
-              <Textarea className="font-mono text-sm h-48" defaultValue={`{
-  "Version": "2024-01-01",
-  "Statement": []
-}`} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditPolicyDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              toast({ title: "Policy Updated", description: `${selectedPolicy?.name} has been updated.` });
-              setEditPolicyDialogOpen(false);
-            }}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Policy Confirmation */}
-      <AlertDialog open={deletePolicyDialogOpen} onOpenChange={setDeletePolicyDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Policy</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{selectedPolicy?.name}"? This will remove the policy from all {selectedPolicy?.attachedCount} attached entities.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePolicy}>Delete Policy</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* View Role Dialog */}
       <Dialog open={viewRoleDialogOpen} onOpenChange={setViewRoleDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedRole?.name}</DialogTitle>
+            <DialogTitle>{selectedRole?.displayName}</DialogTitle>
             <DialogDescription>{selectedRole?.description}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-muted-foreground">Type</Label>
-                <p className="font-medium">{selectedRole?.type}</p>
+                <p className="font-medium">{selectedRole?.isSystem ? "System" : "Custom"}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Members</Label>
-                <p className="font-medium">{selectedRole?.members}</p>
+                <p className="font-medium">{selectedRole?.memberCount}</p>
               </div>
             </div>
             <div>
-              <Label className="text-muted-foreground">Attached Policies</Label>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedRole?.policies.map((policy) => (
-                  <Badge key={policy} variant="secondary">{policy}</Badge>
+              <Label className="text-muted-foreground">Permissions ({selectedRole?.permissions.length})</Label>
+              <div className="flex flex-wrap gap-1 mt-2 max-h-40 overflow-y-auto">
+                {selectedRole?.permissions.map((perm) => (
+                  <Badge key={perm.id} variant="secondary" className="text-xs">
+                    {perm.name}
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -838,32 +859,47 @@ export default function IAMPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Role Policies Dialog */}
-      <Dialog open={editPoliciesDialogOpen} onOpenChange={setEditPoliciesDialogOpen}>
-        <DialogContent className="max-w-lg">
+      {/* Edit Role Permissions Dialog */}
+      <Dialog open={editPermissionsDialogOpen} onOpenChange={setEditPermissionsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Role Policies</DialogTitle>
-            <DialogDescription>Manage policies attached to {selectedRole?.name}</DialogDescription>
+            <DialogTitle>Edit Role Permissions</DialogTitle>
+            <DialogDescription>Manage permissions for {selectedRole?.displayName}</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            {mockPolicies.map((policy) => (
-              <div key={policy.id} className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{policy.name}</p>
-                  <p className="text-sm text-muted-foreground">{policy.description}</p>
+          <div className="py-4 space-y-4 max-h-96 overflow-y-auto">
+            {permissionGroups?.map((group) => (
+              <div key={group.resource}>
+                <h4 className="font-medium mb-2">{group.displayName}</h4>
+                <div className="grid gap-2 pl-4">
+                  {group.permissions.map((perm) => (
+                    <div key={perm.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-${perm.id}`}
+                        checked={selectedPermissionIds.includes(perm.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedPermissionIds([...selectedPermissionIds, perm.id]);
+                          } else {
+                            setSelectedPermissionIds(selectedPermissionIds.filter(id => id !== perm.id));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`edit-${perm.id}`} className="text-sm cursor-pointer">
+                        <span className="font-medium">{perm.name}</span>
+                        <span className="text-muted-foreground ml-2">- {perm.description}</span>
+                      </label>
+                    </div>
+                  ))}
                 </div>
-                <Switch defaultChecked={selectedRole?.policies.includes(policy.name)} />
               </div>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditPoliciesDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setEditPermissionsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              toast({ title: "Role Updated", description: `${selectedRole?.name} policies have been updated.` });
-              setEditPoliciesDialogOpen(false);
-            }}>
+            <Button onClick={handleSavePermissions} disabled={updateRolePermissionsMutation.isPending}>
+              {updateRolePermissionsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </DialogFooter>
@@ -874,28 +910,34 @@ export default function IAMPage() {
       <Dialog open={viewMembersDialogOpen} onOpenChange={setViewMembersDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedRole?.name} Members</DialogTitle>
-            <DialogDescription>{selectedRole?.members} members with this role</DialogDescription>
+            <DialogTitle>{selectedRole?.displayName} Members</DialogTitle>
+            <DialogDescription>{selectedRole?.memberCount} members with this role</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell>Admin User</TableCell>
-                  <TableCell>admin@company.com</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Operations Team</TableCell>
-                  <TableCell>ops@company.com</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            {membersLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : roleMembers && roleMembers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {roleMembers.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell>{member.name}</TableCell>
+                      <TableCell>{member.email}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">No members assigned to this role</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewMembersDialogOpen(false)}>
@@ -911,7 +953,7 @@ export default function IAMPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Role</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{selectedRole?.name}"? This will affect {selectedRole?.members} members.
+              Are you sure you want to delete "{selectedRole?.displayName}"? This will affect {selectedRole?.memberCount} members.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -921,38 +963,50 @@ export default function IAMPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Service Account Role Dialog */}
-      <Dialog open={editRoleDialogOpen} onOpenChange={setEditRoleDialogOpen}>
-        <DialogContent className="max-w-lg">
+      {/* Edit Service Account Dialog */}
+      <Dialog open={editServiceAccountDialogOpen} onOpenChange={setEditServiceAccountDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Service Account Role</DialogTitle>
-            <DialogDescription>Change role for {selectedServiceAccount?.name}</DialogDescription>
+            <DialogTitle>Edit Service Account</DialogTitle>
+            <DialogDescription>Update service account details</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            {mockRoles.map((role) => (
-              <div key={role.id} className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="role"
-                  id={role.id}
-                  defaultChecked={selectedServiceAccount?.role === role.name}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor={role.id} className="flex-1 cursor-pointer">
-                  <p className="font-medium">{role.name}</p>
-                  <p className="text-sm text-muted-foreground">{role.description}</p>
-                </Label>
-              </div>
-            ))}
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Name</Label>
+              <Input
+                value={newServiceAccountName}
+                onChange={(e) => setNewServiceAccountName(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Description</Label>
+              <Textarea
+                value={newServiceAccountDescription}
+                onChange={(e) => setNewServiceAccountDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Role</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={newServiceAccountRoleId}
+                onChange={(e) => setNewServiceAccountRoleId(e.target.value)}
+              >
+                <option value="">No role assigned</option>
+                {roles?.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditRoleDialogOpen(false)}>
+            <Button variant="outline" onClick={() => { setEditServiceAccountDialogOpen(false); resetServiceAccountForm(); }}>
               Cancel
             </Button>
-            <Button onClick={() => {
-              toast({ title: "Role Updated", description: `${selectedServiceAccount?.name} role has been updated.` });
-              setEditRoleDialogOpen(false);
-            }}>
+            <Button onClick={handleSaveServiceAccount} disabled={updateServiceAccountMutation.isPending}>
+              {updateServiceAccountMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </DialogFooter>
@@ -974,6 +1028,38 @@ export default function IAMPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* API Key Display Dialog */}
+      <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>API Key Generated</DialogTitle>
+            <DialogDescription>
+              Copy this API key now. You will not be able to see it again!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={newApiKey || ""}
+                className="font-mono text-sm"
+              />
+              <Button variant="outline" size="icon" onClick={() => newApiKey && copyToClipboard(newApiKey)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Store this key securely. It provides access to your organization's resources.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setShowApiKeyDialog(false); setNewApiKey(null); }}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
