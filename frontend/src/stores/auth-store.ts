@@ -9,6 +9,7 @@ interface AuthState {
   projects: Project[];
   isAuthenticated: boolean;
   isAdmin: boolean;
+  _hasHydrated: boolean;
 
   setUser: (user: User | null) => void;
   setOrganization: (org: Organization | null) => void;
@@ -16,6 +17,7 @@ interface AuthState {
   setProjects: (projects: Project[]) => void;
   login: (user: User, org: Organization) => void;
   logout: () => void;
+  setHasHydrated: (state: boolean) => void;
 }
 
 // Mock data for demo
@@ -70,11 +72,13 @@ export const useAuthStore = create<AuthState>()(
       projects: [],
       isAuthenticated: false,
       isAdmin: false,
+      _hasHydrated: false,
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setOrganization: (organization) => set({ organization }),
       setCurrentProject: (currentProject) => set({ currentProject }),
       setProjects: (projects) => set({ projects }),
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       login: (user, organization) => set({
         user,
@@ -96,6 +100,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
