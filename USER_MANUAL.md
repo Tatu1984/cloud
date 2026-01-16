@@ -1,7 +1,7 @@
 # Cloud Platform User Manual
 
-> **Version:** 1.0
-> **Last Updated:** January 2026
+> **Version:** 1.1
+> **Last Updated:** January 16, 2026
 > **Audience:** Platform Users, Administrators, and Operators
 
 ---
@@ -11,8 +11,9 @@
 1. [Introduction](#1-introduction)
 2. [Getting Started](#2-getting-started)
 3. [User Dashboard Guide](#3-user-dashboard-guide)
-4. [Admin Console Guide](#4-admin-console-guide)
-5. [Quick Reference](#5-quick-reference)
+4. [MicroDataCluster Integration](#4-microdatacluster-integration)
+5. [Admin Console Guide](#5-admin-console-guide)
+6. [Quick Reference](#6-quick-reference)
 
 ---
 
@@ -467,7 +468,129 @@ The User Dashboard is where tenants manage their cloud resources. Access it at `
 
 ---
 
-# 4. Admin Console Guide
+# 4. MicroDataCluster Integration
+
+The platform integrates with MicroDataCluster (MDC) for infrastructure management. This section covers how to use MDC features.
+
+---
+
+## 4.1 Overview
+
+MicroDataCluster provides:
+- **Workspaces** - Virtual environments with VMs and networks
+- **Sites** - Physical datacenter locations with compute nodes
+- **Remote Networks** - Overlay networks for secure connectivity
+- **Organizations** - Multi-tenant organization management
+
+### Dashboard Display
+
+The User Dashboard shows real-time MDC data:
+- Workspace count with total VMs
+- Site nodes (online/offline status)
+- Remote network members
+- Organization count
+
+### Authentication
+
+MDC uses Microsoft Entra ID (Azure AD) for authentication:
+1. Click "Sign in with Microsoft" on the login page
+2. Authenticate with your Microsoft account
+3. MDC data loads automatically on the dashboard
+
+---
+
+## 4.2 Viewing Workspaces
+
+**Location:** Dashboard → MicroDataCluster Infrastructure section
+
+### What You'll See
+- Workspace name
+- VM count within workspace
+- Network count
+- Creation/update dates
+
+### Workspace Details
+Each workspace contains:
+- **Virtual Machines** - Compute instances
+- **Virtual Networks** - Internal networking
+- **Bastion** - Jump host for secure access
+- **Remote Network** - VPN connectivity
+
+---
+
+## 4.3 Viewing Sites
+
+Sites represent physical datacenter locations.
+
+### Site Information
+- Site name and description
+- Node list with status (online/offline)
+- CPU information per node
+- Available VM templates
+
+### Node Status Indicators
+| Color | Status | Meaning |
+|-------|--------|---------|
+| Green | Online | Node is operational |
+| Red | Offline | Node is unreachable |
+| Gray | Unknown | Status cannot be determined |
+
+---
+
+## 4.4 Remote Networks
+
+Remote networks enable secure VPN connectivity.
+
+### What You'll See
+- Network name
+- Member count (online/total)
+- IP assignment pools
+- Managed routes
+
+### Member Information
+- Member ID and name
+- IP addresses assigned
+- Online/offline status
+- Last seen timestamp
+- Client version
+
+---
+
+## 4.5 Current Limitations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| View Workspaces | ✅ Available | Dashboard display |
+| View Sites | ✅ Available | With node status |
+| View Networks | ✅ Available | With member info |
+| Create Workspace | ⚠️ API Only | No UI form yet |
+| Update Workspace | ⚠️ API Only | No UI form yet |
+| Delete Workspace | ❌ Not Available | API doesn't support |
+
+### Creating Workspaces (For Developers)
+
+Workspaces can be created programmatically using the API:
+
+```typescript
+// Requires developer access
+import { useAddWorkspaceToSite } from '@/lib/mdc/hooks';
+
+const addWorkspace = useAddWorkspaceToSite();
+addWorkspace.mutate({
+  siteId: 'site-uuid',
+  descriptor: {
+    name: 'My Workspace',
+    organizationId: 'org-uuid',
+    // Additional configuration...
+  }
+});
+```
+
+**Note:** A UI for workspace creation is planned for future releases.
+
+---
+
+# 5. Admin Console Guide
 
 The Admin Console is for platform operators to manage infrastructure and tenants. Access it at `/admin`.
 
@@ -791,9 +914,9 @@ Active Tenant
 
 ---
 
-# 5. Quick Reference
+# 6. Quick Reference
 
-## 5.1 Keyboard Shortcuts
+## 6.1 Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -801,7 +924,7 @@ Active Tenant
 | `Ctrl/Cmd + /` | Show keyboard shortcuts |
 | `Esc` | Close modal/dialog |
 
-## 5.2 Status Indicators
+## 6.2 Status Indicators
 
 | Color | Meaning |
 |-------|---------|
@@ -810,7 +933,7 @@ Active Tenant
 | Red | Error/Stopped/Critical |
 | Gray | Unknown/Disabled |
 
-## 5.3 Common Actions
+## 6.3 Common Actions
 
 | Task | Location | Steps |
 |------|----------|-------|
@@ -821,7 +944,7 @@ Active Tenant
 | Onboard Tenant | Admin → Tenants | Click "+ Onboard Tenant" |
 | Suspend Tenant | Admin → Tenants → [Tenant] | Actions → Suspend |
 
-## 5.4 Getting Help
+## 6.4 Getting Help
 
 - **Documentation:** DEVELOPERS.md for technical details
 - **Support:** Contact your platform administrator
