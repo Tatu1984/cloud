@@ -243,9 +243,9 @@ export interface ODataResponse<T> {
   value: T[];
 }
 
-export interface ODataSingleResponse<T> extends Omit<T, never> {
+export type ODataSingleResponse<T> = T & {
   '@odata.context'?: string;
-}
+};
 
 // ==================== API Error Types ====================
 
