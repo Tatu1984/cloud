@@ -1,6 +1,6 @@
 # Cloud Platform - Technical Documentation
 
-> **Last Updated:** January 14, 2026
+> **Last Updated:** January 16, 2026
 >
 > This document contains comprehensive technical documentation for developers working on the Cloud Platform project.
 
@@ -1421,7 +1421,268 @@ rbd ls cloudplatform --id cloudplatform
 
 ---
 
-### 8.5 Troubleshooting
+### 8.5 MicroDataCluster Integration
+
+**Purpose:** Connect to MicroDataCluster OData API for workspace and VM management
+
+**API Documentation:** https://www.microdatacluster.com/swagger/index.html
+
+#### Overview
+
+MicroDataCluster provides an OData-based API for managing:
+- **Organizations** - Customer organizations
+- **Sites** - Physical datacenter locations with compute nodes
+- **Workspaces** - Virtual environments containing VMs and networks
+- **Remote Networks** - Overlay networks for VPN connectivity
+- **Users** - User accounts with organization roles
+
+#### Environment Configuration
+
+**Frontend (.env.local):**
+```bash
+# MicroDataCluster API URL
+NEXT_PUBLIC_MDC_API_URL=https://www.microdatacluster.com
+
+# Entra ID for authentication (same as platform SSO)
+NEXT_PUBLIC_ENTRA_CLIENT_ID=your-client-id
+NEXT_PUBLIC_ENTRA_TENANT_ID=your-tenant-id
+```
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/odata/Organizations` | GET | List all organizations |
+| `/odata/Organizations({id})` | GET | Get organization by ID |
+| `/odata/Sites` | GET | List all sites with nodes |
+| `/odata/Sites({id})` | GET | Get site by ID |
+| `/odata/Sites({id})/AddWorkspace` | POST | Create workspace in site |
+| `/odata/Workspaces` | GET | List all workspaces |
+| `/odata/Workspaces({id})` | GET | Get workspace by ID |
+| `/odata/Workspaces({id})/Descriptor` | GET | Get workspace descriptor |
+| `/odata/Workspaces({id})/UpdateDescriptor` | POST | Update workspace |
+| `/odata/RemoteNetworks` | GET | List remote networks |
+| `/odata/Users` | GET | List users |
+
+#### Data Models
+
+**Workspace:**
+```typescript
+{
+  id: string;              // UUID
+  name: string;
+  description?: string;
+  siteId: string;          // Parent site
+  organizationId: string;  // Parent organization
+  virtualMachines: VirtualMachine[];
+  virtualNetworks: VirtualNetwork[];
+  bastion?: VirtualMachine; // Jump host
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+**Site:**
+```typescript
+{
+  id: string;
+  name: string;
+  description?: string;
+  nodes: SiteNode[];       // Physical servers
+  organizationIds: string[];
+  workspaceIds: string[];
+  virtualMachineTemplates: VirtualMachineTemplate[];
+}
+```
+
+**RemoteNetwork:**
+```typescript
+{
+  id: string;
+  name?: string;
+  siteId: string;
+  workspaceId: string;
+  members: RemoteNetworkMember[];  // Connected devices
+  ipAssignmentPools: IPPool[];
+  managedRoutes: Route[];
+}
+```
+
+#### Frontend Usage
+
+```typescript
+import { useWorkspaces, useSites, useRemoteNetworks, useMDCDashboard } from '@/lib/mdc';
+
+// Fetch all workspaces
+const { data: workspaces, isLoading } = useWorkspaces();
+
+// Fetch all sites with nodes
+const { data: sites } = useSites();
+
+// Fetch combined dashboard data
+const { data, isLoading, refetchAll } = useMDCDashboard();
+
+// Access computed values
+console.log(data.totalVMs);       // Total VMs across workspaces
+console.log(data.onlineNodes);    // Online node count
+console.log(data.onlineMembers);  // Online network members
+```
+
+#### Authentication
+
+The MDC API uses Microsoft Entra ID for authentication. The frontend automatically:
+1. Uses MSAL to acquire access token
+2. Attaches Bearer token to all MDC API requests
+3. Handles token refresh silently
+
+**Auth Test Endpoints:**
+- `GET /api/AuthTest/anonymous` - No auth required
+- `GET /api/AuthTest/authenticated` - Requires valid token
+- `GET /api/AuthTest/admin` - Requires admin role
+- `GET /api/AuthTest/user` - Requires user role
+
+#### Dashboard Integration
+
+The User Dashboard displays MDC data in a dedicated section:
+- Workspace count with total VMs
+- Site count with online/offline node status
+- Remote network count with member status
+- Organization count
+- Recent workspaces list
+- Site nodes with CPU info
+
+#### Write Operations (CREATE/UPDATE)
+
+**Available Hooks for Write Operations:**
+
+```typescript
+import { useAddWorkspaceToSite, useUpdateWorkspaceDescriptor } from '@/lib/mdc/hooks';
+
+// CREATE: Add workspace to a site
+const addWorkspace = useAddWorkspaceToSite();
+await addWorkspace.mutateAsync({
+  siteId: 'site-uuid',
+  descriptor: {
+    name: 'My Workspace',
+    description: 'Development environment',
+    organizationId: 'org-uuid',
+    virtualNetworks: [
+      {
+        name: 'internal-network',
+        enableRemoteNetwork: true,
+        remoteNetworkAddressCIDR: '10.0.0.0/24'
+      }
+    ],
+    virtualMachines: [
+      {
+        name: 'web-server',
+        templateName: 'ubuntu-22.04',
+        cpuCores: 4,
+        memoryMB: '8192',
+        operation: 1 // VirtualMachineDescriptorOperation.Add
+      }
+    ]
+  }
+});
+
+// UPDATE: Modify workspace descriptor
+const updateWorkspace = useUpdateWorkspaceDescriptor();
+await updateWorkspace.mutateAsync({
+  workspaceId: 'workspace-uuid',
+  delta: {
+    name: 'Updated Name',
+    virtualMachines: [
+      {
+        name: 'new-vm',
+        templateName: 'ubuntu-22.04',
+        operation: 1 // Add
+      }
+    ]
+  }
+});
+```
+
+**VirtualMachineDescriptorOperation Enum:**
+- `0` = None
+- `1` = Add
+- `2` = Update
+- `3` = Remove
+- `4` = Reboot
+- `5` = Restart
+- `6` = Redeploy
+
+---
+
+### 8.5.1 MDC Integration Audit (Production Readiness)
+
+**Last Audited:** January 16, 2026
+
+#### Implementation Status
+
+| Feature | API Client | React Hook | UI Component | Status |
+|---------|-----------|------------|--------------|--------|
+| List Organizations | ✅ | ✅ `useOrganizations()` | ✅ Dashboard | **COMPLETE** |
+| List Sites | ✅ | ✅ `useSites()` | ✅ Dashboard | **COMPLETE** |
+| List Workspaces | ✅ | ✅ `useWorkspaces()` | ✅ Dashboard | **COMPLETE** |
+| List Remote Networks | ✅ | ✅ `useRemoteNetworks()` | ✅ Dashboard | **COMPLETE** |
+| List Users | ✅ | ✅ `useUsers()` | ❌ None | **PARTIAL** |
+| **Create Workspace** | ✅ | ✅ `useAddWorkspaceToSite()` | ❌ None | **NO UI** |
+| **Update Workspace** | ✅ | ✅ `useUpdateWorkspaceDescriptor()` | ❌ None | **NO UI** |
+| Delete Workspace | ❌ | ❌ | ❌ | **NOT AVAILABLE** |
+| Direct VM CRUD | ❌ | ❌ | ❌ | **NOT AVAILABLE** |
+
+#### Can You Create Workspaces on MDC?
+
+**Answer: YES, but only via code - NO UI exists**
+
+The API client method `addWorkspaceToSite()` and React hook `useAddWorkspaceToSite()` are fully implemented and functional. However, there is **NO user interface** to trigger workspace creation.
+
+**To create a workspace programmatically:**
+```typescript
+const addWorkspace = useAddWorkspaceToSite();
+addWorkspace.mutate({
+  siteId: 'your-site-id',
+  descriptor: {
+    name: 'My New Workspace',
+    organizationId: 'your-org-id',
+    // ... VM and network configs
+  }
+});
+```
+
+#### Missing UI Components (Required for Full Functionality)
+
+1. **Workspace Creation Form** - Modal or page to create workspaces
+2. **Workspace Management Page** - List with create/edit/delete actions
+3. **VM Template Selector** - Dropdown to select from site templates
+4. **Network Configuration Form** - Configure virtual networks and remote access
+5. **Workspace Detail Page** - View/edit workspace settings
+
+#### What Works Today (Production Ready)
+
+| Capability | Status |
+|-----------|--------|
+| View MDC dashboard data | ✅ Works |
+| See workspace counts and VMs | ✅ Works |
+| See site nodes (online/offline) | ✅ Works |
+| See remote network members | ✅ Works |
+| Auto-refresh data | ✅ Works |
+| Entra ID authentication | ✅ Works |
+| Error handling | ✅ Works |
+
+#### What Doesn't Work (Requires Development)
+
+| Capability | Reason |
+|-----------|--------|
+| Create workspace via UI | No form/modal exists |
+| Update workspace via UI | No edit interface |
+| Delete workspace | API doesn't support DELETE |
+| Direct VM management | Must use workspace descriptor |
+| User management | Read-only endpoints |
+
+---
+
+### 8.6 Troubleshooting
 
 #### Proxmox Connection Issues
 
@@ -1619,6 +1880,68 @@ docker-compose up -d
 ---
 
 ## 12. Changelog
+
+### January 16, 2026 (Production Readiness Update)
+
+#### Added - Backend Production Features
+- **Proxmox Integration** - VM operations now call actual Proxmox API
+  - `CreateVM` provisions real VMs on Proxmox nodes
+  - Node selection based on CPU usage (least-loaded strategy)
+  - Template cloning support for faster VM creation
+  - Updated: `backend/internal/compute/service.go`
+- **VM Lifecycle Actions** - Start/Stop/Reboot/Shutdown now call Proxmox API
+  - Async execution with job queue
+  - Status tracking and error handling
+- **Quota Enforcement** - VM creation now checks billing plan limits
+  - Validates: VM count, vCPUs, memory, storage
+  - Returns `QuotaExceeded` error when limits reached
+- **Background Job Queue** - Proper async processing for VM operations
+  - Job types: provision, action, delete, snapshot
+  - Graceful shutdown with WaitGroup
+- **ZeroTier Network Integration** - VPCs now create ZeroTier overlay networks
+  - Auto-configures IP pools from CIDR
+  - Routes and member management
+  - Updated: `backend/internal/network/service.go`
+- **Email Service** - SMTP-based notification system
+  - User invitations with styled HTML templates
+  - Password reset emails
+  - Welcome emails for new users
+  - VM status change notifications
+  - New file: `backend/internal/email/service.go`
+- **MicroDataCluster API Integration** - Full integration with MicroDataCluster OData API for workspace, site, and VM management (see [Section 8.5](#85-microdatacluster-integration))
+  - New React hooks: `useWorkspaces`, `useSites`, `useRemoteNetworks`, `useMDCDashboard`
+  - Dashboard displays MDC data (workspaces, sites, nodes, remote networks)
+  - Uses Microsoft Entra ID authentication via MSAL
+- **User Manual** - Added comprehensive user documentation (`USER_MANUAL.docx`)
+- **DEVELOPERS.docx** - Added Word version of developer documentation
+
+#### Fixed
+- **Auth state hydration race condition** - Fixed timing issue in auth store initialization that could cause authentication state to be incorrect on page load
+  - Updated: `frontend/src/stores/auth-store.ts`
+  - Updated: `frontend/src/app/dashboard/layout.tsx`
+  - Updated: `frontend/src/app/admin/layout.tsx`
+- **Entra ID token validation** - Fixed audience and issuer verification for JWT claims
+
+#### Environment Variables (New)
+```bash
+# Email Service (SMTP)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=noreply@example.com
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM_ADDRESS=noreply@cloudplatform.local
+SMTP_FROM_NAME=Cloud Platform
+SMTP_USE_TLS=true
+```
+
+### January 15, 2026
+
+#### Added
+- **Microsoft Entra ID (Azure AD) SSO** - Full Single Sign-On support via Microsoft Entra ID (see [Section 7.1](#71-microsoft-entra-id-azure-ad-sso))
+  - OAuth 2.0 authorization code flow with PKCE
+  - Automatic token refresh via MSAL
+  - Backend token validation and user provisioning
+  - Environment variables for configuration
 
 ### January 14, 2026
 

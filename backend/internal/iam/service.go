@@ -3,11 +3,13 @@ package iam
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/cloudplatform/backend/internal/auth"
 	"github.com/cloudplatform/backend/internal/config"
 	"github.com/cloudplatform/backend/internal/database"
+	"github.com/cloudplatform/backend/internal/email"
 	"github.com/cloudplatform/backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -17,22 +19,27 @@ type Service struct {
 	db             *gorm.DB
 	jwtService     *auth.JWTService
 	entraIDService *auth.EntraIDService
+	emailService   *email.Service
 }
 
 // NewService creates a new IAM service
 func NewService(db *gorm.DB, cfg *config.JWTConfig) *Service {
+	emailCfg := email.LoadConfig()
 	return &Service{
-		db:         db,
-		jwtService: auth.NewJWTService(cfg),
+		db:           db,
+		jwtService:   auth.NewJWTService(cfg),
+		emailService: email.NewService(emailCfg),
 	}
 }
 
 // NewServiceWithEntraID creates a new IAM service with Entra ID support
 func NewServiceWithEntraID(db *gorm.DB, jwtCfg *config.JWTConfig, entraIDCfg *config.EntraIDConfig) *Service {
+	emailCfg := email.LoadConfig()
 	return &Service{
 		db:             db,
 		jwtService:     auth.NewJWTService(jwtCfg),
 		entraIDService: auth.NewEntraIDService(entraIDCfg),
+		emailService:   email.NewService(emailCfg),
 	}
 }
 
@@ -445,16 +452,21 @@ type InviteUserRequest struct {
 }
 
 // InviteUser invites a user to the organization
-func (s *Service) InviteUser(ctx context.Context, orgID string, req InviteUserRequest) error {
+func (s *Service) InviteUser(ctx context.Context, orgID string, inviterName string, req InviteUserRequest) error {
 	// Check if user already exists
 	var existingUser database.User
 	if err := s.db.WithContext(ctx).Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
 		return errors.New(errors.ErrResourceExists, "user already exists")
 	}
 
-	// TODO: Send invitation email
-	// For now, just create the user with a temporary password
+	// Get organization name for email
+	var org database.Organization
+	if err := s.db.WithContext(ctx).Where("id = ?", orgID).First(&org).Error; err != nil {
+		return errors.NotFound("organization")
+	}
 
+	// Generate invitation token
+	inviteToken, _ := auth.GenerateRandomString(32)
 	tempPassword, _ := auth.GenerateRandomString(16)
 	passwordHash, _ := auth.HashPassword(tempPassword)
 
@@ -482,6 +494,14 @@ func (s *Service) InviteUser(ctx context.Context, orgID string, req InviteUserRe
 		RoleID: role.ID,
 	}
 	s.db.Create(&userRole)
+
+	// Send invitation email
+	inviteLink := fmt.Sprintf("https://cloudplatform.example.com/auth/accept-invite?token=%s&email=%s", inviteToken, req.Email)
+	if err := s.emailService.SendInvitation(ctx, req.Email, req.Email, inviterName, org.Name, inviteLink); err != nil {
+		// Log error but don't fail the invitation
+		// User is created, they just won't get the email
+		fmt.Printf("Failed to send invitation email: %v\n", err)
+	}
 
 	return nil
 }

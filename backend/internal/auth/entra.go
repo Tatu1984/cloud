@@ -208,13 +208,20 @@ func (s *EntraIDService) ValidateIDToken(ctx context.Context, idToken string) (*
 	}
 
 	// Validate audience (client ID)
-	if !claims.VerifyAudience(s.config.ClientID, true) {
+	audienceValid := false
+	for _, aud := range claims.Audience {
+		if aud == s.config.ClientID {
+			audienceValid = true
+			break
+		}
+	}
+	if !audienceValid {
 		return nil, errors.New("invalid token audience")
 	}
 
 	// Validate issuer
 	expectedIssuer := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", s.config.TenantID)
-	if !claims.VerifyIssuer(expectedIssuer, true) {
+	if claims.Issuer != expectedIssuer {
 		return nil, errors.New("invalid token issuer")
 	}
 

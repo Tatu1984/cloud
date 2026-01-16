@@ -281,7 +281,14 @@ func (h *Handler) InviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.InviteUser(r.Context(), orgID, req); err != nil {
+	// Get inviter name from claims or use default
+	inviterName := "A team member"
+	claims := middleware.GetClaims(r.Context())
+	if claims != nil && claims.Email != "" {
+		inviterName = claims.Email
+	}
+
+	if err := h.service.InviteUser(r.Context(), orgID, inviterName, req); err != nil {
 		response.Error(w, err)
 		return
 	}
