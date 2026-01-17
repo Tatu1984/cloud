@@ -162,6 +162,22 @@ export default function IAMPage() {
 
   // Role handlers
   const handleCreateRole = async () => {
+    if (!newRoleName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Role name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!newRoleDisplayName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Display name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       await createRoleMutation.mutateAsync({
         name: newRoleName,
@@ -175,10 +191,11 @@ export default function IAMPage() {
       });
       setCreateRoleDialogOpen(false);
       resetRoleForm();
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create role. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to create role. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -207,10 +224,11 @@ export default function IAMPage() {
         description: `${selectedRole.displayName} permissions have been updated.`,
       });
       setEditPermissionsDialogOpen(false);
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update permissions. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to update permissions. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

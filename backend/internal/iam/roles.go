@@ -6,6 +6,7 @@ import (
 
 	"github.com/cloudplatform/backend/internal/database"
 	"github.com/cloudplatform/backend/pkg/errors"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -72,6 +73,22 @@ func (s *RoleService) CreateRole(ctx context.Context, orgID string, req CreateRo
 		return nil, errors.New(errors.ErrResourceExists, "role with this name already exists")
 	}
 
+	// Validate all permission IDs exist before creating the role
+	if len(req.PermissionIDs) > 0 {
+		var validCount int64
+		if err := s.db.WithContext(ctx).Model(&database.Permission{}).
+			Where("id IN ?", req.PermissionIDs).
+			Count(&validCount).Error; err != nil {
+			return nil, errors.DatabaseError(err)
+		}
+		if int(validCount) != len(req.PermissionIDs) {
+			return nil, errors.New(errors.ErrBadRequest, "one or more permission IDs are invalid")
+		}
+	}
+
+	// Pre-generate UUID to ensure we have the ID available for role-permission entries
+	roleID := uuid.New().String()
+
 	role := database.Role{
 		Name:           req.Name,
 		DisplayName:    req.DisplayName,
@@ -79,6 +96,7 @@ func (s *RoleService) CreateRole(ctx context.Context, orgID string, req CreateRo
 		IsSystem:       false,
 		OrganizationID: orgID,
 	}
+	role.ID = roleID
 
 	tx := s.db.WithContext(ctx).Begin()
 	defer func() {
@@ -96,7 +114,7 @@ func (s *RoleService) CreateRole(ctx context.Context, orgID string, req CreateRo
 	if len(req.PermissionIDs) > 0 {
 		for _, permID := range req.PermissionIDs {
 			rp := database.RolePermission{
-				RoleID:       role.ID,
+				RoleID:       roleID,
 				PermissionID: permID,
 				CreatedAt:    time.Now(),
 			}
@@ -111,7 +129,7 @@ func (s *RoleService) CreateRole(ctx context.Context, orgID string, req CreateRo
 		return nil, errors.DatabaseError(err)
 	}
 
-	return s.GetRole(ctx, role.ID)
+	return s.GetRole(ctx, roleID)
 }
 
 // GetRole returns a role by ID
@@ -323,6 +341,19 @@ func (s *RoleService) UpdateRolePermissions(ctx context.Context, roleID string, 
 	// Cannot update system roles
 	if role.IsSystem {
 		return errors.New(errors.ErrForbidden, "cannot modify system role permissions")
+	}
+
+	// Validate all permission IDs exist before updating
+	if len(permissionIDs) > 0 {
+		var validCount int64
+		if err := s.db.WithContext(ctx).Model(&database.Permission{}).
+			Where("id IN ?", permissionIDs).
+			Count(&validCount).Error; err != nil {
+			return errors.DatabaseError(err)
+		}
+		if int(validCount) != len(permissionIDs) {
+			return errors.New(errors.ErrBadRequest, "one or more permission IDs are invalid")
+		}
 	}
 
 	tx := s.db.WithContext(ctx).Begin()
