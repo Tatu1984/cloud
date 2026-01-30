@@ -1,63 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { useMicrosoftAuth } from '@/hooks/use-microsoft-auth';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const { handleRedirectCallback } = useMicrosoftAuth();
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
-    const processCallback = async () => {
-      try {
-        const result = await handleRedirectCallback();
-
-        if (result) {
-          // Successfully authenticated - redirect based on role
-          if (result.user?.roles?.includes('admin') || result.user?.roles?.includes('operator')) {
-            router.push('/admin');
-          } else {
-            router.push('/dashboard');
-          }
+    // The MSAL redirect is handled by useMicrosoftAuth hook on initialization
+    // This page just waits and redirects based on auth state
+    const checkAuth = () => {
+      if (isAuthenticated && user) {
+        // User is authenticated - redirect based on role
+        if (user.roles?.includes('admin') || user.roles?.includes('operator')) {
+          router.push('/admin');
         } else {
-          // No result - might be a fresh page load, redirect to login
-          router.push('/auth/login');
+          router.push('/dashboard');
         }
-      } catch (err) {
-        console.error('Callback error:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
+      } else {
+        // Not authenticated yet - wait a bit for MSAL to process
+        // If still not authenticated after delay, redirect to login
+        setTimeout(() => {
+          const store = useAuthStore.getState();
+          if (!store.isAuthenticated) {
+            router.push('/auth/login');
+          }
+        }, 2000);
       }
     };
 
-    processCallback();
-  }, [handleRedirectCallback, router]);
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-        <Card className="w-full max-w-md bg-slate-800/50 border-slate-700">
-          <CardHeader className="text-center">
-            <CardTitle className="text-white text-xl">Authentication Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert className="bg-red-500/10 border-red-500/30">
-              <AlertDescription className="text-red-400">{error}</AlertDescription>
-            </Alert>
-            <div className="mt-4 text-center">
-              <a href="/auth/login" className="text-blue-400 hover:text-blue-300">
-                Return to login
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+    checkAuth();
+  }, [isAuthenticated, user, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
