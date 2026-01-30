@@ -28,10 +28,11 @@ stages:
     pool:
       vmImage: $(vmImageName)
     steps:
+    # Build the Docker image with build args
     - task: Docker@2
-      displayName: Build and push an image to container registry
+      displayName: Build Docker image
       inputs:
-        command: buildAndPush
+        command: build
         repository: $(imageRepository)
         dockerfile: $(dockerfilePath)
         buildContext: '$(Build.SourcesDirectory)/frontend'
@@ -42,6 +43,17 @@ stages:
           --build-arg NEXT_PUBLIC_ENTRA_AUTHORITY=$(NEXT_PUBLIC_ENTRA_AUTHORITY)
           --build-arg NEXT_PUBLIC_ENTRA_REDIRECT_URI=$(NEXT_PUBLIC_ENTRA_REDIRECT_URI)
           --build-arg NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL)
+        tags: |
+          $(tag)
+          latest
+
+    # Push the Docker image
+    - task: Docker@2
+      displayName: Push Docker image
+      inputs:
+        command: push
+        repository: $(imageRepository)
+        containerRegistry: $(dockerRegistryServiceConnection)
         tags: |
           $(tag)
           latest
