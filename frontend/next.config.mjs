@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone', // Required for Docker deployment
   eslint: {
     // Ignore ESLint during builds - lint separately in CI
     ignoreDuringBuilds: true,

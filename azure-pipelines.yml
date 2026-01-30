@@ -13,7 +13,7 @@ variables:
   dockerRegistryServiceConnection: '67e2ff83-f116-43e6-83a1-fcf924ea5ef8'
   imageRepository: 'mdcwebdashboardpreview'
   containerRegistry: 'microdatacenterdevelopment.azurecr.io'
-  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  dockerfilePath: '$(Build.SourcesDirectory)/frontend/Dockerfile'
   tag: '$(Build.BuildId)'
 
   # Agent VM image name
@@ -34,6 +34,7 @@ stages:
         command: buildAndPush
         repository: $(imageRepository)
         dockerfile: $(dockerfilePath)
+        buildContext: '$(Build.SourcesDirectory)/frontend'
         containerRegistry: $(dockerRegistryServiceConnection)
         tags: |
           $(tag)
