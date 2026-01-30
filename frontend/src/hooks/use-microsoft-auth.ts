@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { InteractionStatus } from '@azure/msal-browser';
+import { AccountInfo } from '@azure/msal-browser';
 import { getMsalInstance, loginRequest, isEntraIDConfigured } from '@/lib/msal-config';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRouter } from 'next/navigation';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 interface MicrosoftAuthState {
   isLoading: boolean;
@@ -42,7 +40,12 @@ export function useMicrosoftAuth() {
         await msalInstance.initialize();
 
         // Handle any pending redirect - this clears stale interaction state
-        await msalInstance.handleRedirectPromise();
+        const response = await msalInstance.handleRedirectPromise();
+
+        // If we got a response from redirect, process it
+        if (response?.account) {
+          processAccountInfo(response.account, response.idToken);
+        }
 
         setState(prev => ({
           ...prev,
@@ -60,45 +63,40 @@ export function useMicrosoftAuth() {
     };
 
     initializeMsal();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const processAuthResponse = useCallback(async (idToken: string, responseState?: string) => {
-    // Send the ID token to our backend
-    const backendResponse = await fetch(`${API_URL}/api/v1/auth/microsoft/callback`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code: idToken,
-        state: responseState || '',
-      }),
-    });
+  // Process account info from Microsoft and create user session
+  const processAccountInfo = useCallback((account: AccountInfo, idToken?: string) => {
+    // Extract user info from the Microsoft account
+    const user = {
+      id: account.localAccountId || account.homeAccountId,
+      email: account.username,
+      name: account.name || account.username,
+      roles: ['user'], // Default role
+      entraIdOid: account.localAccountId,
+      authProvider: 'entra_id' as const,
+    };
 
-    if (!backendResponse.ok) {
-      const errorData = await backendResponse.json();
-      throw new Error(errorData.error?.message || 'Authentication failed');
-    }
+    // Create a mock organization for now (can be updated when backend is ready)
+    const organization = {
+      id: 'org-' + account.tenantId,
+      name: account.name ? `${account.name}'s Organization` : 'My Organization',
+      slug: 'my-org',
+    };
 
-    const authData = await backendResponse.json();
-
-    // Store tokens
-    if (authData.tokens?.accessToken) {
-      localStorage.setItem('accessToken', authData.tokens.accessToken);
-      localStorage.setItem('refreshToken', authData.tokens.refreshToken);
+    // Store the ID token if available
+    if (idToken) {
+      localStorage.setItem('accessToken', idToken);
     }
 
     // Update auth store
-    login(authData.user, authData.organization);
+    login(user, organization);
 
-    // Redirect based on role
-    if (authData.user.roles?.includes('admin') || authData.user.roles?.includes('operator')) {
-      router.push('/admin');
-    } else {
-      router.push('/dashboard');
-    }
+    // Redirect to dashboard
+    router.push('/dashboard');
 
-    return authData;
+    return { user, organization };
   }, [login, router]);
 
   const signInWithMicrosoft = useCallback(async (isSignUp: boolean = false) => {
@@ -127,8 +125,8 @@ export function useMicrosoftAuth() {
       // Try popup login
       const response = await msalInstance.loginPopup(request);
 
-      if (response.idToken) {
-        await processAuthResponse(response.idToken, response.state);
+      if (response.account) {
+        processAccountInfo(response.account, response.idToken);
       }
     } catch (error: unknown) {
       console.error('Microsoft login error:', error);
@@ -162,9 +160,9 @@ export function useMicrosoftAuth() {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [state.isInitialized, processAuthResponse]);
+  }, [state.isInitialized, processAccountInfo]);
 
-  const signInWithMicrosoftRedirect = useCallback(async () => {
+  const signInWithMicrosoftRedirect = useCallback(async (isSignUp: boolean = false) => {
     const msalInstance = getMsalInstance();
 
     if (!msalInstance) {
@@ -180,7 +178,11 @@ export function useMicrosoftAuth() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      await msalInstance.loginRedirect(loginRequest);
+      const request = isSignUp
+        ? { ...loginRequest, prompt: 'create' as const }
+        : loginRequest;
+
+      await msalInstance.loginRedirect(request);
     } catch (error) {
       console.error('Microsoft redirect error:', error);
       setState(prev => ({
@@ -191,45 +193,21 @@ export function useMicrosoftAuth() {
     }
   }, [state.isInitialized]);
 
-  const handleRedirectCallback = useCallback(async () => {
-    const msalInstance = getMsalInstance();
-
-    if (!msalInstance) {
-      return null;
-    }
-
-    try {
-      await msalInstance.initialize();
-      const response = await msalInstance.handleRedirectPromise();
-
-      if (response?.idToken) {
-        setState(prev => ({ ...prev, isLoading: true }));
-        const authData = await processAuthResponse(response.idToken, response.state);
-        setState(prev => ({ ...prev, isLoading: false }));
-        return authData;
-      }
-    } catch (error) {
-      console.error('Redirect callback error:', error);
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to complete authentication',
-      }));
-    }
-
-    return null;
-  }, [processAuthResponse]);
-
   // Sign up with Microsoft (triggers the sign-up flow)
   const signUpWithMicrosoft = useCallback(async () => {
     return signInWithMicrosoft(true);
   }, [signInWithMicrosoft]);
 
+  // Sign up with redirect
+  const signUpWithMicrosoftRedirect = useCallback(async () => {
+    return signInWithMicrosoftRedirect(true);
+  }, [signInWithMicrosoftRedirect]);
+
   return {
     signInWithMicrosoft: () => signInWithMicrosoft(false),
     signUpWithMicrosoft,
-    signInWithMicrosoftRedirect,
-    handleRedirectCallback,
+    signInWithMicrosoftRedirect: () => signInWithMicrosoftRedirect(false),
+    signUpWithMicrosoftRedirect,
     isLoading: state.isLoading,
     error: state.error,
     isConfigured: state.isConfigured,
