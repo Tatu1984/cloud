@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   const {
-    signInWithMicrosoft,
+    signInAsAdmin,
     isLoading: microsoftLoading,
     error: microsoftError,
     isConfigured: isMicrosoftConfigured,
@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
   const handleMicrosoftLogin = async () => {
     setError('');
     clearMicrosoftError();
-    await signInWithMicrosoft();
+    await signInAsAdmin();
   };
 
   const fillDemoCredentials = () => {
