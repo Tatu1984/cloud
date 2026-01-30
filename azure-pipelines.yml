@@ -36,6 +36,12 @@ stages:
         dockerfile: $(dockerfilePath)
         buildContext: '$(Build.SourcesDirectory)/frontend'
         containerRegistry: $(dockerRegistryServiceConnection)
+        arguments: |
+          --build-arg NEXT_PUBLIC_ENTRA_CLIENT_ID=$(NEXT_PUBLIC_ENTRA_CLIENT_ID)
+          --build-arg NEXT_PUBLIC_ENTRA_TENANT_ID=$(NEXT_PUBLIC_ENTRA_TENANT_ID)
+          --build-arg NEXT_PUBLIC_ENTRA_AUTHORITY=$(NEXT_PUBLIC_ENTRA_AUTHORITY)
+          --build-arg NEXT_PUBLIC_ENTRA_REDIRECT_URI=$(NEXT_PUBLIC_ENTRA_REDIRECT_URI)
+          --build-arg NEXT_PUBLIC_API_URL=$(NEXT_PUBLIC_API_URL)
         tags: |
           $(tag)
           latest
