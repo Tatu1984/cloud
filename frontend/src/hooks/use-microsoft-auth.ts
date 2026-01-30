@@ -13,6 +13,9 @@ interface MicrosoftAuthState {
   isInitialized: boolean;
 }
 
+// Key for storing intended login type
+const LOGIN_TYPE_KEY = 'msal_login_type';
+
 export function useMicrosoftAuth() {
   const router = useRouter();
   const { login } = useAuthStore();
@@ -23,6 +26,54 @@ export function useMicrosoftAuth() {
     isConfigured: false,
     isInitialized: false,
   });
+
+  // Process account info from Microsoft and create user session
+  const processAccountInfo = useCallback((account: AccountInfo, idToken?: string, isAdmin?: boolean) => {
+    // Check if this was an admin login (from stored value or parameter)
+    const storedLoginType = localStorage.getItem(LOGIN_TYPE_KEY);
+    const shouldBeAdmin = isAdmin || storedLoginType === 'admin';
+
+    // Clear the stored login type
+    localStorage.removeItem(LOGIN_TYPE_KEY);
+
+    // Extract user info from the Microsoft account
+    const user = {
+      id: account.localAccountId || account.homeAccountId,
+      email: account.username,
+      name: account.name || account.username,
+      role: shouldBeAdmin ? 'admin' as const : 'user' as const,
+      organizationId: 'org-' + account.tenantId,
+      entraIdOid: account.localAccountId,
+      authProvider: 'entra_id' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Create a mock organization for now (can be updated when backend is ready)
+    const organization = {
+      id: 'org-' + account.tenantId,
+      name: account.name ? `${account.name}'s Organization` : 'My Organization',
+      slug: 'my-org',
+      plan: 'professional' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Store the ID token if available
+    if (idToken) {
+      localStorage.setItem('accessToken', idToken);
+    }
+
+    // Update auth store
+    login(user, organization);
+
+    // Redirect based on role
+    if (shouldBeAdmin) {
+      router.push('/admin');
+    } else {
+      router.push('/dashboard');
+    }
+
+    return { user, organization };
+  }, [login, router]);
 
   // Initialize MSAL and handle any pending redirects on mount
   useEffect(() => {
@@ -66,40 +117,8 @@ export function useMicrosoftAuth() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Process account info from Microsoft and create user session
-  const processAccountInfo = useCallback((account: AccountInfo, idToken?: string) => {
-    // Extract user info from the Microsoft account
-    const user = {
-      id: account.localAccountId || account.homeAccountId,
-      email: account.username,
-      name: account.name || account.username,
-      roles: ['user'], // Default role
-      entraIdOid: account.localAccountId,
-      authProvider: 'entra_id' as const,
-    };
-
-    // Create a mock organization for now (can be updated when backend is ready)
-    const organization = {
-      id: 'org-' + account.tenantId,
-      name: account.name ? `${account.name}'s Organization` : 'My Organization',
-      slug: 'my-org',
-    };
-
-    // Store the ID token if available
-    if (idToken) {
-      localStorage.setItem('accessToken', idToken);
-    }
-
-    // Update auth store
-    login(user, organization);
-
-    // Redirect to dashboard
-    router.push('/dashboard');
-
-    return { user, organization };
-  }, [login, router]);
-
-  const signInWithMicrosoft = useCallback(async (isSignUp: boolean = false) => {
+  const signInWithMicrosoft = useCallback(async (options: { isSignUp?: boolean; isAdmin?: boolean } = {}) => {
+    const { isSignUp = false, isAdmin = false } = options;
     const msalInstance = getMsalInstance();
 
     if (!msalInstance) {
@@ -111,6 +130,13 @@ export function useMicrosoftAuth() {
     if (!state.isInitialized) {
       setState(prev => ({ ...prev, error: 'Authentication is initializing. Please try again.' }));
       return;
+    }
+
+    // Store the login type for redirect flow
+    if (isAdmin) {
+      localStorage.setItem(LOGIN_TYPE_KEY, 'admin');
+    } else {
+      localStorage.setItem(LOGIN_TYPE_KEY, 'user');
     }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -126,10 +152,13 @@ export function useMicrosoftAuth() {
       const response = await msalInstance.loginPopup(request);
 
       if (response.account) {
-        processAccountInfo(response.account, response.idToken);
+        processAccountInfo(response.account, response.idToken, isAdmin);
       }
     } catch (error: unknown) {
       console.error('Microsoft login error:', error);
+
+      // Clear stored login type on error
+      localStorage.removeItem(LOGIN_TYPE_KEY);
 
       // Handle specific MSAL errors
       let errorMessage = 'Failed to sign in with Microsoft';
@@ -162,7 +191,8 @@ export function useMicrosoftAuth() {
     }
   }, [state.isInitialized, processAccountInfo]);
 
-  const signInWithMicrosoftRedirect = useCallback(async (isSignUp: boolean = false) => {
+  const signInWithMicrosoftRedirect = useCallback(async (options: { isSignUp?: boolean; isAdmin?: boolean } = {}) => {
+    const { isSignUp = false, isAdmin = false } = options;
     const msalInstance = getMsalInstance();
 
     if (!msalInstance) {
@@ -175,6 +205,13 @@ export function useMicrosoftAuth() {
       return;
     }
 
+    // Store the login type for redirect flow
+    if (isAdmin) {
+      localStorage.setItem(LOGIN_TYPE_KEY, 'admin');
+    } else {
+      localStorage.setItem(LOGIN_TYPE_KEY, 'user');
+    }
+
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -185,6 +222,7 @@ export function useMicrosoftAuth() {
       await msalInstance.loginRedirect(request);
     } catch (error) {
       console.error('Microsoft redirect error:', error);
+      localStorage.removeItem(LOGIN_TYPE_KEY);
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -193,21 +231,16 @@ export function useMicrosoftAuth() {
     }
   }, [state.isInitialized]);
 
-  // Sign up with Microsoft (triggers the sign-up flow)
-  const signUpWithMicrosoft = useCallback(async () => {
-    return signInWithMicrosoft(true);
-  }, [signInWithMicrosoft]);
-
-  // Sign up with redirect
-  const signUpWithMicrosoftRedirect = useCallback(async () => {
-    return signInWithMicrosoftRedirect(true);
-  }, [signInWithMicrosoftRedirect]);
+  // Convenience methods
+  const signInAsUser = useCallback(() => signInWithMicrosoft({ isAdmin: false }), [signInWithMicrosoft]);
+  const signInAsAdmin = useCallback(() => signInWithMicrosoft({ isAdmin: true }), [signInWithMicrosoft]);
+  const signUpWithMicrosoft = useCallback(() => signInWithMicrosoft({ isSignUp: true }), [signInWithMicrosoft]);
 
   return {
-    signInWithMicrosoft: () => signInWithMicrosoft(false),
+    signInWithMicrosoft: signInAsUser,
+    signInAsAdmin,
     signUpWithMicrosoft,
-    signInWithMicrosoftRedirect: () => signInWithMicrosoftRedirect(false),
-    signUpWithMicrosoftRedirect,
+    signInWithMicrosoftRedirect: (isAdmin = false) => signInWithMicrosoftRedirect({ isAdmin }),
     isLoading: state.isLoading,
     error: state.error,
     isConfigured: state.isConfigured,
