@@ -39,21 +39,11 @@ export default function UserLoginPage() {
 
   const {
     signInWithMicrosoft,
-    handleRedirectCallback,
     isLoading: microsoftLoading,
     error: microsoftError,
     isConfigured: isMicrosoftConfigured,
     clearError: clearMicrosoftError,
   } = useMicrosoftAuth();
-
-  // Handle Microsoft redirect callback
-  useEffect(() => {
-    handleRedirectCallback().then((result) => {
-      if (result) {
-        router.push('/dashboard');
-      }
-    });
-  }, [handleRedirectCallback, router]);
 
   // Show Microsoft auth errors
   useEffect(() => {

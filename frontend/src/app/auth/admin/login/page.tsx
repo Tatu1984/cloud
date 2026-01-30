@@ -39,26 +39,11 @@ export default function AdminLoginPage() {
 
   const {
     signInWithMicrosoft,
-    handleRedirectCallback,
     isLoading: microsoftLoading,
     error: microsoftError,
     isConfigured: isMicrosoftConfigured,
     clearError: clearMicrosoftError,
   } = useMicrosoftAuth();
-
-  // Handle Microsoft redirect callback
-  useEffect(() => {
-    handleRedirectCallback().then((result) => {
-      if (result) {
-        // Check if user has admin role
-        if (result.user?.roles?.includes('admin') || result.user?.roles?.includes('operator')) {
-          router.push('/admin');
-        } else {
-          setError('Access denied. Admin privileges required.');
-        }
-      }
-    });
-  }, [handleRedirectCallback, router]);
 
   // Show Microsoft auth errors
   useEffect(() => {

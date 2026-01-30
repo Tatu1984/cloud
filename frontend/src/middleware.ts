@@ -31,6 +31,9 @@ export function middleware(request: NextRequest) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8080'
   const apiHost = new URL(apiUrl).origin
 
+  // MicroDataCluster API
+  const mdcApiUrl = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com'
+
   // Entra ID / CIAM authentication domains
   const entraAuthority = process.env.NEXT_PUBLIC_ENTRA_AUTHORITY || ''
   const entraDomains = [
@@ -49,7 +52,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'", // Tailwind and styled-jsx need this
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
-    `connect-src 'self' ${apiHost} ${entraDomains} wss: ws:`, // API, Entra ID, and WebSocket
+    `connect-src 'self' ${apiHost} ${mdcApiUrl} ${entraDomains} wss: ws:`, // API, MDC, Entra ID, and WebSocket
     `frame-src 'self' ${entraDomains}`, // Allow Entra ID popups/iframes
     "frame-ancestors 'none'",
     "form-action 'self'",

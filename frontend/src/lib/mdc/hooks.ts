@@ -35,6 +35,9 @@ async function getAccessToken(): Promise<string | null> {
   if (!msalInstance) return null;
 
   try {
+    // Ensure MSAL is initialized before attempting to acquire tokens
+    await msalInstance.initialize();
+
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length === 0) return null;
 
