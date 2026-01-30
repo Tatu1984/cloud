@@ -22,15 +22,18 @@ import {
   Cloud,
   User,
   Lock,
+  UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useMicrosoftAuth } from '@/hooks/use-microsoft-auth'
 
 export default function LandingPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [activeFeature, setActiveFeature] = useState(0)
+  const { signUpWithMicrosoft, isLoading, error, isConfigured, clearError } = useMicrosoftAuth()
 
   useEffect(() => {
     setIsVisible(true)
@@ -168,27 +171,55 @@ export default function LandingPage() {
             and networking. <span className="text-slate-300">Deploy in seconds, scale without limits.</span>
           </p>
 
-          {/* CTA Buttons - Sign In Options */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
-            <Link href="/auth/login">
-              <Button
-                size="lg"
-                className="text-lg px-8 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-xl shadow-blue-500/30 transition-all hover:shadow-blue-500/40 hover:scale-105"
-              >
-                <User className="mr-2 h-5 w-5" />
-                Sign In as User
-              </Button>
-            </Link>
-            <Link href="/auth/admin/login">
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-8 h-14 bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 backdrop-blur-sm"
-              >
-                <Shield className="mr-2 h-5 w-5" />
-                Sign In as Admin
-              </Button>
-            </Link>
+          {/* CTA Buttons - Sign Up & Sign In Options */}
+          <div className="flex flex-col gap-4 pt-6">
+            {/* Primary Sign Up Button */}
+            {isConfigured && (
+              <div className="flex justify-center">
+                <Button
+                  size="lg"
+                  onClick={signUpWithMicrosoft}
+                  disabled={isLoading}
+                  className="text-lg px-10 h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-xl shadow-emerald-500/30 transition-all hover:shadow-emerald-500/40 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <UserPlus className="mr-2 h-5 w-5" />
+                  {isLoading ? 'Signing up...' : 'Sign Up with Microsoft'}
+                </Button>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="flex justify-center">
+                <div className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
+                  <span>{error}</span>
+                  <button onClick={clearError} className="hover:text-red-300">&times;</button>
+                </div>
+              </div>
+            )}
+
+            {/* Sign In Options */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth/login">
+                <Button
+                  size="lg"
+                  className="text-lg px-8 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-xl shadow-blue-500/30 transition-all hover:shadow-blue-500/40 hover:scale-105"
+                >
+                  <User className="mr-2 h-5 w-5" />
+                  Sign In as User
+                </Button>
+              </Link>
+              <Link href="/auth/admin/login">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg px-8 h-14 bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 backdrop-blur-sm"
+                >
+                  <Shield className="mr-2 h-5 w-5" />
+                  Sign In as Admin
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Demo Credentials Box */}

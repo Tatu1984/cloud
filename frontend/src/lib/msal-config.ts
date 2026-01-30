@@ -1,13 +1,27 @@
 import { Configuration, LogLevel, PublicClientApplication } from '@azure/msal-browser';
 
 // MSAL configuration - values come from environment variables
+// Supports both standard Entra ID and Entra External ID (CIAM) tenants
+const getAuthority = () => {
+  // If a custom authority is provided (for CIAM), use it with the tenant ID
+  if (process.env.NEXT_PUBLIC_ENTRA_AUTHORITY) {
+    const baseAuthority = process.env.NEXT_PUBLIC_ENTRA_AUTHORITY.replace(/\/$/, '');
+    return `${baseAuthority}/${process.env.NEXT_PUBLIC_ENTRA_TENANT_ID || ''}`;
+  }
+  // Default to standard Entra ID authority
+  return `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_ENTRA_TENANT_ID || 'common'}`;
+};
+
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID || '',
-    authority: `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_ENTRA_TENANT_ID || 'common'}`,
+    authority: getAuthority(),
     redirectUri: process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || 'http://localhost:3000/auth/callback',
     postLogoutRedirectUri: '/',
     navigateToLoginRequestUrl: true,
+    knownAuthorities: process.env.NEXT_PUBLIC_ENTRA_AUTHORITY
+      ? [process.env.NEXT_PUBLIC_ENTRA_AUTHORITY.replace(/\/$/, '')]
+      : [],
   },
   cache: {
     cacheLocation: 'sessionStorage',
