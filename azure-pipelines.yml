@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 trigger:
   branches:
     include:
@@ -135,3 +136,45 @@ stages:
                     curl -f https://$(AZURE_WEBAPP_NAME).azurewebsites.net/ || echo "Frontend deployment completed"
                   displayName: 'Verify deployment'
                   continueOnError: true
+=======
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '67e2ff83-f116-43e6-83a1-fcf924ea5ef8'
+  imageRepository: 'mdcwebdashboardpreview'
+  containerRegistry: 'microdatacenterdevelopment.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+          latest
+>>>>>>> origin/main
