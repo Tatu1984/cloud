@@ -54,9 +54,9 @@ export const msalConfig: Configuration = {
   },
 };
 
-// Scopes for Microsoft Graph API access
+// Scopes for authentication - CIAM uses simpler scopes
 export const loginRequest = {
-  scopes: ['openid', 'profile', 'email', 'User.Read'],
+  scopes: ['openid', 'profile', 'email'],
 };
 
 // Create MSAL instance
