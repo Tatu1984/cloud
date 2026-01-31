@@ -54,3 +54,13 @@ stages:
         docker push $(containerRegistry)/$(imageRepository):$(tag)
         docker push $(containerRegistry)/$(imageRepository):latest
       displayName: Push Docker image
+
+    # Force App Service to pull new image
+    - task: AzureCLI@2
+      displayName: Restart App Service
+      inputs:
+        azureSubscription: 'microdatacenterdevelopment'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az webapp restart --name mdc-web-dashboard-preview --resource-group MicroDataCenterDevelopment
