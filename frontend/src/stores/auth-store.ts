@@ -89,15 +89,19 @@ export const useAuthStore = create<AuthState>()(
       setAccessToken: (accessToken) => set({ accessToken }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
-      login: (user, organization, accessToken) => set({
-        user,
-        organization,
-        currentProject: mockProjects[0],
-        projects: mockProjects,
-        isAuthenticated: true,
-        isAdmin: user.role === 'admin' || user.role === 'operator',
-        accessToken: accessToken || null,
-      }),
+      login: (user, organization, accessToken) => {
+        const isAdmin = user.role === 'admin' || user.role === 'operator';
+        console.log('[Auth Store] login called:', { role: user.role, isAdmin });
+        return set({
+          user,
+          organization,
+          currentProject: mockProjects[0],
+          projects: mockProjects,
+          isAuthenticated: true,
+          isAdmin,
+          accessToken: accessToken || null,
+        });
+      },
 
       logout: () => set({
         user: null,

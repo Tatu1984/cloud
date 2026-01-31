@@ -33,6 +33,13 @@ export function useMicrosoftAuth() {
     const storedLoginType = localStorage.getItem(LOGIN_TYPE_KEY);
     const shouldBeAdmin = isAdmin || storedLoginType === 'admin';
 
+    // Debug logging
+    console.log('[Auth Debug] processAccountInfo called:', {
+      isAdmin,
+      storedLoginType,
+      shouldBeAdmin,
+    });
+
     // Clear the stored login type
     localStorage.removeItem(LOGIN_TYPE_KEY);
 
@@ -62,8 +69,14 @@ export function useMicrosoftAuth() {
       localStorage.setItem('accessToken', idToken);
     }
 
+    // Debug logging
+    console.log('[Auth Debug] User object:', { role: user.role, email: user.email });
+
     // Update auth store
     login(user, organization);
+
+    // Debug logging
+    console.log('[Auth Debug] Redirecting to:', shouldBeAdmin ? '/admin' : '/dashboard');
 
     // Redirect based on role
     if (shouldBeAdmin) {
