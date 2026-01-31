@@ -87,6 +87,15 @@ migrate-force:
 migrate-create:
 	$(MIGRATE) create -ext sql -dir $(MIGRATIONS_PATH) -seq $(NAME)
 
+# Seed demo data (runs migration 000002)
+seed-demo:
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" goto 2
+
+# Reset database and reseed
+db-reset:
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" drop -f
+	$(MIGRATE) -path $(MIGRATIONS_PATH) -database "$(DB_URL)" up
+
 # Generate API documentation
 docs:
 	swag init -g cmd/api/main.go
@@ -125,3 +134,5 @@ help:
 	@echo "  migrate-down    - Rollback last migration"
 	@echo "  migrate-version - Show current migration version"
 	@echo "  migrate-create  - Create new migration (NAME=xxx)"
+	@echo "  seed-demo       - Seed demo data (users, VMs, etc.)"
+	@echo "  db-reset        - Reset database and run all migrations"

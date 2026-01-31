@@ -88,6 +88,7 @@ export default function AdminLoginPage() {
   };
 
   const handleMicrosoftLogin = async () => {
+    console.log('[Admin Login] handleMicrosoftLogin called - using signInAsAdmin');
     setError('');
     clearMicrosoftError();
     await signInAsAdmin();

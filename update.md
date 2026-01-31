@@ -2,15 +2,36 @@
 
 ## Status: Production Ready (Backend) + MDC Integration
 
-**Last Updated:** January 16, 2026
+**Last Updated:** January 17, 2026
 
-**Frontend**: 53+ pages fully implemented
+**Frontend**: 54+ pages fully implemented
 **Backend**: Production-ready Go API with real infrastructure integration
 **MDC Integration**: Read operations complete, write operations API-ready
 
 ---
 
-## Recent Changes (January 16, 2026)
+## Recent Changes (January 17, 2026)
+
+### MDC Workspace Creation UI
+
+| Feature | Status |
+|---------|--------|
+| Workspaces list page | ✅ New page at `/dashboard/infrastructure/workspaces` |
+| Create workspace dialog | ✅ Full form with site/org selection |
+| VM configuration | ✅ Add VMs with template, CPU, memory |
+| Sidebar navigation | ✅ New "Infrastructure" section added |
+
+### Files Changed (January 17)
+
+```
+frontend/src/app/dashboard/infrastructure/workspaces/page.tsx  - NEW: Workspace management UI
+frontend/src/components/layout/app-sidebar.tsx                 - Added Infrastructure nav section
+update.md                                                       - Updated documentation
+```
+
+---
+
+## Previous Changes (January 16, 2026)
 
 ### Backend Production Readiness
 
@@ -96,33 +117,23 @@ cloud/
 | View Sites | ✅ | ✅ | ✅ | **COMPLETE** |
 | View Workspaces | ✅ | ✅ | ✅ | **COMPLETE** |
 | View Remote Networks | ✅ | ✅ | ✅ | **COMPLETE** |
-| Create Workspace | ✅ | ✅ | ❌ | **NO UI** |
+| Create Workspace | ✅ | ✅ | ✅ | **COMPLETE** |
 | Update Workspace | ✅ | ✅ | ❌ | **NO UI** |
 | Delete Workspace | ❌ | ❌ | ❌ | **NOT IN API** |
 
-### Can You Create Workspaces?
+### Workspace Management UI
 
-**YES - via code only. NO UI exists.**
+**Location:** `/dashboard/infrastructure/workspaces`
 
-```typescript
-import { useAddWorkspaceToSite } from '@/lib/mdc/hooks';
-
-const addWorkspace = useAddWorkspaceToSite();
-addWorkspace.mutate({
-  siteId: 'site-uuid',
-  descriptor: {
-    name: 'My Workspace',
-    organizationId: 'org-uuid',
-    virtualMachines: [
-      {
-        name: 'web-server',
-        templateName: 'ubuntu-22.04',
-        operation: 1 // Add
-      }
-    ]
-  }
-});
-```
+The workspace management page provides:
+- List view of all workspaces with search
+- Summary cards (total workspaces, VMs, networks)
+- Create workspace dialog with:
+  - Site selection
+  - Organization selection (optional)
+  - Description field
+  - VM configuration (name, template, CPU, memory)
+- Workspace actions (view, manage, delete placeholder)
 
 ---
 
@@ -291,13 +302,13 @@ go build ./...
 | Quota Enforcement | ✅ | Billing plan limits |
 | Email Notifications | ✅ | SMTP with templates |
 | MDC Read Operations | ✅ | Dashboard display |
-| MDC Write Operations | ⚠️ | API ready, no UI |
+| MDC Write Operations | ✅ | Workspace creation UI |
 
 ## What's Missing
 
 | Component | Status | Required Work |
 |-----------|--------|---------------|
-| MDC Workspace UI | ❌ | Create form/modal |
+| MDC Workspace Update UI | ❌ | Edit form/modal |
 | Kubernetes Service | ❌ | Implement K8s provisioning |
 | Database Management | ❌ | Implement managed DB service |
 | Load Balancer Service | ❌ | Implement LB provisioning |
@@ -308,7 +319,7 @@ go build ./...
 ## Next Steps
 
 ### High Priority
-1. Build MDC workspace creation UI
+1. Build MDC workspace update UI
 2. Add comprehensive backend tests
 3. Implement Kubernetes service
 
@@ -324,4 +335,4 @@ go build ./...
 
 ---
 
-*Last Updated: January 16, 2026*
+*Last Updated: January 17, 2026*

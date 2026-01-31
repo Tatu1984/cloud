@@ -132,6 +132,7 @@ export function useMicrosoftAuth() {
 
   const signInWithMicrosoft = useCallback(async (options: { isSignUp?: boolean; isAdmin?: boolean } = {}) => {
     const { isSignUp = false, isAdmin = false } = options;
+    console.log('[Auth Debug] signInWithMicrosoft called with:', { options, isAdmin });
     const msalInstance = getMsalInstance();
 
     if (!msalInstance) {

@@ -60,6 +60,15 @@ const tenantNavItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Infrastructure",
+    icon: Boxes,
+    items: [
+      { title: "Workspaces", url: "/dashboard/infrastructure/workspaces" },
+      { title: "Sites", url: "/dashboard/infrastructure/sites" },
+      { title: "Remote Networks", url: "/dashboard/infrastructure/remote-networks" },
+    ],
+  },
+  {
     title: "Compute",
     icon: Server,
     items: [
