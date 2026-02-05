@@ -1,5 +1,5 @@
 // MicroDataCluster API Client
-// Connects to https://www.microdatacluster.com/odata
+// Connects to the MDC WebAPI backend (OData endpoints)
 
 import {
   Organization,
@@ -10,9 +10,15 @@ import {
   WorkspaceDescriptor,
   ODataResponse,
   MDCApiError,
+  SiteDescriptor,
+  Template,
+  DownloadTemplateDescriptor,
+  OrganizationDescriptor,
+  RemoteNetworkUpdate,
 } from './types';
 
-const MDC_BASE_URL = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com';
+// Default to localhost for development, can be overridden via environment
+const MDC_BASE_URL = process.env.NEXT_PUBLIC_MDC_API_URL || 'http://localhost:5000';
 
 export interface MDCClientConfig {
   baseUrl?: string;
@@ -82,6 +88,26 @@ export class MDCClient {
     return this.request<Organization>(`/odata/Organizations(${id})`);
   }
 
+  async createOrganization(descriptor: OrganizationDescriptor): Promise<Organization> {
+    return this.request<Organization>('/odata/Organizations', {
+      method: 'POST',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async updateOrganization(id: string, descriptor: Partial<OrganizationDescriptor>): Promise<void> {
+    await this.request(`/odata/Organizations(${id})`, {
+      method: 'PATCH',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async deleteOrganization(id: string): Promise<void> {
+    await this.request(`/odata/Organizations(${id})`, {
+      method: 'DELETE',
+    });
+  }
+
   // ==================== Sites ====================
 
   async getSites(): Promise<Site[]> {
@@ -93,10 +119,47 @@ export class MDCClient {
     return this.request<Site>(`/odata/Sites(${id})`);
   }
 
-  async addWorkspaceToSite(siteId: string, descriptor: WorkspaceDescriptor): Promise<void> {
-    await this.request(`/odata/Sites(${siteId})/AddWorkspace`, {
+  async getSiteWorkspaces(siteId: string): Promise<Workspace[]> {
+    const response = await this.request<ODataResponse<Workspace>>(`/odata/Sites(${siteId})/Workspaces`);
+    return response.value;
+  }
+
+  async createSite(descriptor: SiteDescriptor): Promise<Site> {
+    return this.request<Site>('/odata/Sites', {
       method: 'POST',
-      body: JSON.stringify({ workspaceDescriptor: descriptor }),
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async updateSite(siteId: string, delta: Partial<Site>): Promise<void> {
+    await this.request(`/odata/Sites(${siteId})`, {
+      method: 'PATCH',
+      body: JSON.stringify(delta),
+    });
+  }
+
+  async deleteSite(siteId: string): Promise<void> {
+    await this.request(`/odata/Sites(${siteId})`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getDownloadableTemplates(siteId: string): Promise<Template[]> {
+    const response = await this.request<ODataResponse<Template>>(`/odata/Sites(${siteId})/DownloadableTemplates`);
+    return response.value;
+  }
+
+  async downloadTemplate(siteId: string, descriptor: DownloadTemplateDescriptor): Promise<void> {
+    await this.request(`/odata/Sites(${siteId})/DownloadTemplate`, {
+      method: 'POST',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async addWorkspaceToSite(siteId: string, descriptor: WorkspaceDescriptor): Promise<Workspace> {
+    return this.request<Workspace>(`/odata/Sites(${siteId})/Workspaces`, {
+      method: 'POST',
+      body: JSON.stringify(descriptor),
     });
   }
 
@@ -126,13 +189,33 @@ export class MDCClient {
     return this.request<WorkspaceDescriptor>(`/odata/Workspaces(${workspaceId})/Descriptor`);
   }
 
+  async createWorkspace(siteId: string, descriptor: WorkspaceDescriptor): Promise<Workspace> {
+    return this.request<Workspace>(`/odata/Workspaces?siteId=${siteId}`, {
+      method: 'POST',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
   async updateWorkspaceDescriptor(
     workspaceId: string,
     delta: Partial<WorkspaceDescriptor>
   ): Promise<WorkspaceDescriptor> {
     return this.request<WorkspaceDescriptor>(`/odata/Workspaces(${workspaceId})/UpdateDescriptor`, {
-      method: 'POST',
-      body: JSON.stringify({ delta }),
+      method: 'PUT',
+      body: JSON.stringify(delta),
+    });
+  }
+
+  async lockWorkspace(workspaceId: string, locked: boolean): Promise<void> {
+    await this.request(`/odata/Workspaces(${workspaceId})/Lock`, {
+      method: 'PUT',
+      body: JSON.stringify({ locked }),
+    });
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    await this.request(`/odata/Workspaces(${workspaceId})`, {
+      method: 'DELETE',
     });
   }
 
@@ -145,6 +228,13 @@ export class MDCClient {
 
   async getRemoteNetwork(id: string): Promise<RemoteNetwork> {
     return this.request<RemoteNetwork>(`/odata/RemoteNetworks(${id})`);
+  }
+
+  async updateRemoteNetwork(id: string, update: RemoteNetworkUpdate): Promise<void> {
+    await this.request(`/odata/RemoteNetworks(${id})`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    });
   }
 
   // ==================== Auth Test ====================

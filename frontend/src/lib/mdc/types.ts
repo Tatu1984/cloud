@@ -63,6 +63,7 @@ export interface Workspace {
   address: number;
   name: string;
   description?: string;
+  locked: boolean; // Prevents modification when true
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
   bastion?: VirtualMachine;
@@ -245,6 +246,84 @@ export interface ODataResponse<T> {
 
 export interface ODataSingleResponse<T> extends Omit<T, never> {
   '@odata.context'?: string;
+}
+
+// ==================== Site Descriptor Types ====================
+
+export interface SiteDescriptor {
+  memberAddress: string; // ZeroTier node address
+  registrationUserName: string; // Proxmox user
+  registrationPassword: string; // Proxmox password
+  description?: string;
+  validateServerCertificate?: boolean;
+  port?: number;
+  timeout?: number;
+  organizationIds?: string[];
+  importToOrganizationId?: string;
+}
+
+// ==================== Template Types ====================
+
+export interface Template {
+  name: string;
+  revision: number;
+  type: 'gateway' | 'bastion' | 'virtualMachine';
+  description?: string;
+  cores?: number;
+  memory?: string;
+  storage?: VirtualMachineTemplateStorage[];
+}
+
+export interface DownloadTemplateDescriptor {
+  templateName: string;
+  templateRevision: number;
+  targetNode?: string;
+}
+
+// ==================== Organization Descriptor Types ====================
+
+export interface OrganizationDescriptor {
+  name: string;
+  organizationUserRoles?: OrganizationUserRoleDescriptor[];
+  siteIds: string[];
+}
+
+export interface OrganizationUserRoleDescriptor {
+  userId: string;
+  role: string;
+}
+
+// ==================== Remote Network Update Types ====================
+
+export interface RemoteNetworkUpdate {
+  ipAssignmentPools?: RemoteNetworkIPAssignmentPool[];
+  managedRoutes?: RemoteNetworkRoute[];
+  members?: RemoteNetworkMemberUpdate[];
+}
+
+export interface RemoteNetworkMemberUpdate {
+  id: string;
+  authorized?: boolean;
+  name?: string;
+  description?: string;
+  ipAssignments?: string[];
+}
+
+// ==================== User Registration Types ====================
+
+export interface UserRegistrationDescriptor {
+  objectId: string; // Azure AD Object ID
+  organizationRoles?: OrganizationUserRoleDescriptor[];
+}
+
+export interface UserUpdateDescriptor {
+  organizationRoles?: OrganizationUserRoleDescriptor[];
+}
+
+// ==================== Workspace Lock Types ====================
+
+export interface WorkspaceLockDescriptor {
+  locked: boolean;
 }
 
 // ==================== API Error Types ====================

@@ -21,6 +21,7 @@ import {
   Terminal,
   Loader2,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,97 +75,117 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { mockPhysicalNodes, mockProxmoxClusters, PhysicalNode } from "@/stores/mock-data";
+import { useSites, useWorkspaces } from "@/lib/mdc";
+import { SiteNode, Site } from "@/lib/mdc/types";
 import { Search } from "lucide-react";
+
+// Extended node type that includes site information
+interface ExtendedNode extends SiteNode {
+  siteId: string;
+  siteName: string;
+}
 
 const statusConfig = {
   online: { icon: CheckCircle, color: "text-green-500", variant: "default" as const },
   offline: { icon: XCircle, color: "text-red-500", variant: "destructive" as const },
   maintenance: { icon: Wrench, color: "text-yellow-500", variant: "secondary" as const },
-  error: { icon: AlertTriangle, color: "text-orange-500", variant: "destructive" as const },
+  unknown: { icon: AlertCircle, color: "text-gray-500", variant: "outline" as const },
 };
 
-function formatUptime(seconds: number): string {
-  if (seconds === 0) return "Offline";
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h`;
+function getNodeStatus(node: SiteNode): "online" | "offline" | "maintenance" | "unknown" {
+  if (node.online) return "online";
+  if (node.configured === false) return "maintenance";
+  if (!node.online) return "offline";
+  return "unknown";
 }
 
 export default function NodesPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [clusterFilter, setClusterFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
+  // Fetch real data from MDC API
+  const { data: sites, isLoading: sitesLoading, error: sitesError, refetch: refetchSites } = useSites();
+  const { data: workspaces } = useWorkspaces();
+
   // Dialog states
-  const [nodeForConsole, setNodeForConsole] = useState<PhysicalNode | null>(null);
-  const [nodeForIPMI, setNodeForIPMI] = useState<PhysicalNode | null>(null);
-  const [nodeForVMs, setNodeForVMs] = useState<PhysicalNode | null>(null);
-  const [nodeForMaintenance, setNodeForMaintenance] = useState<PhysicalNode | null>(null);
-  const [nodeForPower, setNodeForPower] = useState<PhysicalNode | null>(null);
-  const [nodeToRemove, setNodeToRemove] = useState<PhysicalNode | null>(null);
+  const [nodeForConsole, setNodeForConsole] = useState<ExtendedNode | null>(null);
+  const [nodeForIPMI, setNodeForIPMI] = useState<ExtendedNode | null>(null);
+  const [nodeForVMs, setNodeForVMs] = useState<ExtendedNode | null>(null);
+  const [nodeForMaintenance, setNodeForMaintenance] = useState<ExtendedNode | null>(null);
+  const [nodeForPower, setNodeForPower] = useState<ExtendedNode | null>(null);
+  const [nodeToRemove, setNodeToRemove] = useState<ExtendedNode | null>(null);
   const [addNodeOpen, setAddNodeOpen] = useState(false);
 
   // Form states
   const [newNodeName, setNewNodeName] = useState("");
   const [newNodeIP, setNewNodeIP] = useState("");
-  const [newNodeCluster, setNewNodeCluster] = useState("");
+  const [newNodeSite, setNewNodeSite] = useState("");
   const [powerAction, setPowerAction] = useState("");
 
-  const filteredNodes = mockPhysicalNodes.filter((node) => {
-    const matchesSearch =
-      node.name.toLowerCase().includes(search.toLowerCase()) ||
-      node.ipAddress.includes(search);
-    const matchesStatus = statusFilter === "all" || node.status === statusFilter;
-    const matchesCluster = clusterFilter === "all" || node.clusterId === clusterFilter;
-    return matchesSearch && matchesStatus && matchesCluster;
+  // Extract all nodes from all sites with site info attached
+  const allNodes: ExtendedNode[] = sites?.flatMap(site =>
+    (site.nodes || []).map(node => ({
+      ...node,
+      siteId: site.id,
+      siteName: site.name,
+    }))
+  ) || [];
+
+  // Filter nodes
+  const filteredNodes = allNodes.filter((node) => {
+    const matchesSearch = node.name.toLowerCase().includes(search.toLowerCase());
+    const nodeStatus = getNodeStatus(node);
+    const matchesStatus = statusFilter === "all" || nodeStatus === statusFilter;
+    const matchesSite = siteFilter === "all" || node.siteId === siteFilter;
+    return matchesSearch && matchesStatus && matchesSite;
   });
 
-  const totalNodes = mockPhysicalNodes.length;
-  const onlineNodes = mockPhysicalNodes.filter((n) => n.status === "online").length;
-  const totalCores = mockPhysicalNodes.reduce((sum, n) => sum + n.cpuCores, 0);
-  const totalMemory = mockPhysicalNodes.reduce((sum, n) => sum + n.totalMemory, 0);
-  const totalPower = mockPhysicalNodes
-    .filter((n) => n.status === "online")
-    .reduce((sum, n) => sum + n.powerConsumption, 0);
+  // Calculate totals
+  const totalNodes = allNodes.length;
+  const onlineNodes = allNodes.filter((n) => n.online).length;
+  const totalCores = allNodes.reduce((sum, n) => sum + (n.cpuInfo?.cores || 0) * (n.cpuInfo?.sockets || 1), 0);
+  const totalCPUs = allNodes.reduce((sum, n) => sum + (n.cpuInfo?.cpUs || 0), 0);
+
+  // Count VMs across all workspaces
+  const totalVMs = workspaces?.reduce((sum, ws) => sum + (ws.virtualMachines?.length || 0), 0) || 0;
 
   const handleRefreshAll = async () => {
     setIsLoading("refresh");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await refetchSites();
     setIsLoading(null);
     toast({
       title: "Nodes Refreshed",
-      description: "All node data has been refreshed",
+      description: "All node data has been refreshed from Proxmox sites",
     });
   };
 
   const handleAddNode = async () => {
-    if (!newNodeName || !newNodeIP || !newNodeCluster) return;
+    if (!newNodeName || !newNodeIP || !newNodeSite) return;
     setIsLoading("add");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Note: Adding nodes requires Proxmox cluster operations - not yet implemented in API
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsLoading(null);
     toast({
-      title: "Node Added",
-      description: `${newNodeName} has been added to the cluster`,
+      title: "Feature Coming Soon",
+      description: "Adding nodes requires Proxmox cluster operations. Use Proxmox UI for now.",
+      variant: "destructive",
     });
     setAddNodeOpen(false);
-    setNewNodeName("");
-    setNewNodeIP("");
-    setNewNodeCluster("");
   };
 
   const handleMaintenance = async (enter: boolean) => {
     if (!nodeForMaintenance) return;
     setIsLoading("maintenance");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsLoading(null);
     toast({
-      title: enter ? "Entered Maintenance" : "Exited Maintenance",
-      description: `${nodeForMaintenance.name} is ${enter ? "now in maintenance mode" : "back online"}`,
+      title: "Feature Coming Soon",
+      description: "Maintenance mode operations are not yet implemented in the API",
     });
     setNodeForMaintenance(null);
   };
@@ -172,11 +193,11 @@ export default function NodesPage() {
   const handlePowerAction = async () => {
     if (!nodeForPower || !powerAction) return;
     setIsLoading("power");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsLoading(null);
     toast({
-      title: "Power Action Executed",
-      description: `${powerAction} command sent to ${nodeForPower.name}`,
+      title: "Feature Coming Soon",
+      description: "Power actions require IPMI/BMC integration",
     });
     setNodeForPower(null);
     setPowerAction("");
@@ -185,15 +206,80 @@ export default function NodesPage() {
   const handleRemove = async () => {
     if (!nodeToRemove) return;
     setIsLoading("remove");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsLoading(null);
     toast({
-      title: "Node Removed",
-      description: `${nodeToRemove.name} has been removed from the cluster`,
+      title: "Feature Coming Soon",
+      description: "Node removal requires Proxmox cluster operations. Use Proxmox UI for now.",
       variant: "destructive",
     });
     setNodeToRemove(null);
   };
+
+  // Loading state
+  if (sitesLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Physical Nodes</h1>
+            <p className="text-muted-foreground">Loading node data from Proxmox sites...</p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading nodes from MDC API...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Error state
+  if (sitesError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Physical Nodes</h1>
+            <p className="text-muted-foreground">Manage physical server infrastructure</p>
+          </div>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="py-8">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertTriangle className="h-12 w-12 text-destructive" />
+              <div>
+                <h3 className="font-semibold">Failed to load nodes</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {sitesError.message || "Could not connect to MDC API"}
+                </p>
+              </div>
+              <Button onClick={() => refetchSites()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -201,7 +287,7 @@ export default function NodesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Physical Nodes</h1>
           <p className="text-muted-foreground">
-            Manage physical server infrastructure
+            Manage physical server infrastructure across {sites?.length || 0} Proxmox sites
           </p>
         </div>
         <div className="flex gap-2">
@@ -235,6 +321,9 @@ export default function NodesPage() {
             <div className="text-2xl font-bold">{totalNodes}</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-500">{onlineNodes} online</span>
+              {totalNodes - onlineNodes > 0 && (
+                <span className="text-red-500 ml-2">{totalNodes - onlineNodes} offline</span>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -245,39 +334,37 @@ export default function NodesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCores}</div>
-            <p className="text-xs text-muted-foreground">Physical cores</p>
+            <p className="text-xs text-muted-foreground">{totalCPUs} logical CPUs</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Memory</CardTitle>
-            <MemoryStick className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Proxmox Sites</CardTitle>
+            <Network className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round(totalMemory / 1024)} TB</div>
-            <p className="text-xs text-muted-foreground">RAM capacity</p>
+            <div className="text-2xl font-bold">{sites?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">Datacenter clusters</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Power Usage</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Workspaces</CardTitle>
+            <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(totalPower / 1000).toFixed(1)} kW</div>
-            <p className="text-xs text-muted-foreground">Current draw</p>
+            <div className="text-2xl font-bold">{workspaces?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">Active workspaces</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Running VMs</CardTitle>
+            <CardTitle className="text-sm font-medium">Total VMs</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockPhysicalNodes.reduce((sum, n) => sum + n.vmsRunning, 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Active instances</p>
+            <div className="text-2xl font-bold">{totalVMs}</div>
+            <p className="text-xs text-muted-foreground">Virtual machines</p>
           </CardContent>
         </Card>
       </div>
@@ -287,7 +374,7 @@ export default function NodesPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or IP..."
+            placeholder="Search by node name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8"
@@ -302,18 +389,17 @@ export default function NodesPage() {
             <SelectItem value="online">Online</SelectItem>
             <SelectItem value="offline">Offline</SelectItem>
             <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="error">Error</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={clusterFilter} onValueChange={setClusterFilter}>
+        <Select value={siteFilter} onValueChange={setSiteFilter}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Cluster" />
+            <SelectValue placeholder="Site" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Clusters</SelectItem>
-            {mockProxmoxClusters.map((cluster) => (
-              <SelectItem key={cluster.id} value={cluster.id}>
-                {cluster.name}
+            <SelectItem value="all">All Sites</SelectItem>
+            {sites?.map((site) => (
+              <SelectItem key={site.id} value={site.id}>
+                {site.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -325,159 +411,147 @@ export default function NodesPage() {
         <CardHeader>
           <CardTitle>Nodes</CardTitle>
           <CardDescription>
-            Physical servers across all Proxmox clusters
+            Physical servers across all Proxmox sites ({filteredNodes.length} nodes)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Node</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Cluster</TableHead>
-                <TableHead>CPU</TableHead>
-                <TableHead>Memory</TableHead>
-                <TableHead>VMs</TableHead>
-                <TableHead>Temp</TableHead>
-                <TableHead>Power</TableHead>
-                <TableHead>Uptime</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredNodes.map((node) => {
-                const StatusIcon = statusConfig[node.status].icon;
-                const memPercent = Math.round((node.usedMemory / node.totalMemory) * 100);
+          {filteredNodes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Server className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No nodes found</p>
+              <p className="text-sm">
+                {allNodes.length === 0
+                  ? "No Proxmox sites have been registered yet"
+                  : "Try adjusting your search or filter criteria"
+                }
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Node</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Site</TableHead>
+                  <TableHead>CPU Info</TableHead>
+                  <TableHead>Authorized</TableHead>
+                  <TableHead>Configured</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredNodes.map((node, index) => {
+                  const status = getNodeStatus(node);
+                  const StatusIcon = statusConfig[status].icon;
 
-                return (
-                  <TableRow key={node.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{node.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {node.model}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {node.ipAddress}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <StatusIcon className={`h-4 w-4 ${statusConfig[node.status].color}`} />
-                        <Badge variant={statusConfig[node.status].variant}>
-                          {node.status}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {node.clusterName}
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-20 space-y-1">
-                        <Progress
-                          value={node.cpuUsage}
-                          className={node.cpuUsage > 80 ? "[&>div]:bg-red-500" : ""}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {node.cpuUsage}% ({node.cpuCores} cores)
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-20 space-y-1">
-                        <Progress
-                          value={memPercent}
-                          className={memPercent > 80 ? "[&>div]:bg-red-500" : ""}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {node.usedMemory}/{node.totalMemory} GB
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{node.vmsRunning}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Thermometer
-                          className={`h-4 w-4 ${
-                            node.temperature > 60
-                              ? "text-red-500"
-                              : node.temperature > 45
-                              ? "text-yellow-500"
-                              : "text-green-500"
-                          }`}
-                        />
-                        <span className={node.temperature > 60 ? "text-red-500 font-medium" : ""}>
-                          {node.temperature > 0 ? `${node.temperature}°C` : "-"}
+                  return (
+                    <TableRow key={`${node.siteId}-${node.name}-${index}`}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{node.name}</p>
+                          {node.cpuInfo && (
+                            <p className="text-xs text-muted-foreground">
+                              {node.cpuInfo.model}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className={`h-4 w-4 ${statusConfig[status].color}`} />
+                          <Badge variant={statusConfig[status].variant}>
+                            {status}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-muted-foreground text-sm">
+                          {node.siteName}
                         </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Zap className="h-4 w-4 text-muted-foreground" />
-                        <span>{node.powerConsumption > 0 ? `${node.powerConsumption}W` : "-"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{formatUptime(node.uptime)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setNodeForConsole(node)}>
-                            <Terminal className="mr-2 h-4 w-4" />
-                            SSH Console
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setNodeForIPMI(node)}>
-                            <Network className="mr-2 h-4 w-4" />
-                            IPMI Console
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setNodeForVMs(node)}>
-                            <Server className="mr-2 h-4 w-4" />
-                            View VMs
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {node.status === "online" ? (
-                            <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
-                              <Wrench className="mr-2 h-4 w-4" />
-                              Enter Maintenance
+                      </TableCell>
+                      <TableCell>
+                        {node.cpuInfo ? (
+                          <div className="text-sm">
+                            <p>{node.cpuInfo.sockets} socket(s) × {node.cpuInfo.cores} cores</p>
+                            <p className="text-xs text-muted-foreground">
+                              {node.cpuInfo.cpUs} CPUs @ {node.cpuInfo.mhz?.toFixed(0) || "N/A"} MHz
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {node.authorized ? (
+                          <Badge variant="default">Yes</Badge>
+                        ) : node.authorized === false ? (
+                          <Badge variant="destructive">No</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {node.configured ? (
+                          <Badge variant="default">Yes</Badge>
+                        ) : node.configured === false ? (
+                          <Badge variant="secondary">No</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setNodeForConsole(node)}>
+                              <Terminal className="mr-2 h-4 w-4" />
+                              SSH Console
                             </DropdownMenuItem>
-                          ) : node.status === "maintenance" ? (
-                            <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Exit Maintenance
+                            <DropdownMenuItem onSelect={() => setNodeForIPMI(node)}>
+                              <Network className="mr-2 h-4 w-4" />
+                              IPMI Console
                             </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuItem onSelect={() => setNodeForPower(node)}>
-                            <Power className="mr-2 h-4 w-4" />
-                            Power Actions
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onSelect={() => setNodeToRemove(node)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove from Cluster
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                            <DropdownMenuItem onSelect={() => setNodeForVMs(node)}>
+                              <Server className="mr-2 h-4 w-4" />
+                              View Workspaces
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {status === "online" ? (
+                              <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
+                                <Wrench className="mr-2 h-4 w-4" />
+                                Enter Maintenance
+                              </DropdownMenuItem>
+                            ) : status === "maintenance" ? (
+                              <DropdownMenuItem onSelect={() => setNodeForMaintenance(node)}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Exit Maintenance
+                              </DropdownMenuItem>
+                            ) : null}
+                            <DropdownMenuItem onSelect={() => setNodeForPower(node)}>
+                              <Power className="mr-2 h-4 w-4" />
+                              Power Actions
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onSelect={() => setNodeToRemove(node)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Remove from Cluster
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -487,17 +561,24 @@ export default function NodesPage() {
           <DialogHeader>
             <DialogTitle>Add Node</DialogTitle>
             <DialogDescription>
-              Add a new physical server to a Proxmox cluster
+              Add a new physical server to a Proxmox site
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
+              <p className="font-medium text-yellow-600">Note</p>
+              <p className="text-muted-foreground mt-1">
+                Adding nodes to a Proxmox cluster requires direct cluster operations.
+                Use the Proxmox web UI for now.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="node-name">Node Name</Label>
               <Input
                 id="node-name"
                 value={newNodeName}
                 onChange={(e) => setNewNodeName(e.target.value)}
-                placeholder="node-04"
+                placeholder="pve-node-04"
               />
             </div>
             <div className="space-y-2">
@@ -510,15 +591,15 @@ export default function NodesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Cluster</Label>
-              <Select value={newNodeCluster} onValueChange={setNewNodeCluster}>
+              <Label>Site</Label>
+              <Select value={newNodeSite} onValueChange={setNewNodeSite}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select cluster" />
+                  <SelectValue placeholder="Select site" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockProxmoxClusters.map((cluster) => (
-                    <SelectItem key={cluster.id} value={cluster.id}>
-                      {cluster.name}
+                  {sites?.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>
+                      {site.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -531,7 +612,7 @@ export default function NodesPage() {
             </Button>
             <Button
               onClick={handleAddNode}
-              disabled={!newNodeName || !newNodeIP || !newNodeCluster || isLoading === "add"}
+              disabled={!newNodeName || !newNodeIP || !newNodeSite || isLoading === "add"}
             >
               {isLoading === "add" ? (
                 <>
@@ -552,19 +633,20 @@ export default function NodesPage() {
           <DialogHeader>
             <DialogTitle>SSH Console - {nodeForConsole?.name}</DialogTitle>
             <DialogDescription>
-              Terminal access to {nodeForConsole?.ipAddress}
+              Terminal access to {nodeForConsole?.siteName} / {nodeForConsole?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 bg-black rounded-lg p-4 font-mono text-green-400 text-sm overflow-auto h-[450px]">
-            <div>$ ssh root@{nodeForConsole?.ipAddress}</div>
+            <div>$ ssh root@{nodeForConsole?.name}</div>
             <div className="mt-2">Last login: {new Date().toLocaleString()}</div>
             <div className="mt-2">
               <span className="text-blue-400">root@{nodeForConsole?.name}</span>
               <span className="text-white">:~# </span>
               <span className="animate-pulse">_</span>
             </div>
-            <div className="mt-4 text-muted-foreground text-xs">
-              Note: This is a simulated console. In production, this would connect to an actual SSH session.
+            <div className="mt-4 text-yellow-500 text-xs">
+              Note: SSH console access requires integration with ZT Bridge Guacamole.
+              Use the Guacamole web UI at /guacamole/ for now.
             </div>
           </div>
         </DialogContent>
@@ -582,21 +664,21 @@ export default function NodesPage() {
           <div className="py-4 space-y-4">
             <div className="rounded-lg border p-4 space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">IPMI IP</span>
+                <span className="text-muted-foreground">Node</span>
                 <code className="bg-muted px-2 py-1 rounded text-sm">
-                  {nodeForIPMI?.ipAddress.replace(/\.\d+$/, ".254")}
+                  {nodeForIPMI?.name}
                 </code>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant="default">Connected</Badge>
+                <span className="text-muted-foreground">Site</span>
+                <span>{nodeForIPMI?.siteName}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline">Power Status</Button>
-              <Button variant="outline">SOL Console</Button>
-              <Button variant="outline">Sensor Data</Button>
-              <Button variant="outline">Event Logs</Button>
+            <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm">
+              <p className="text-muted-foreground">
+                IPMI/BMC console access requires direct network access to the server&apos;s
+                management interface. This feature is not yet integrated.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -607,28 +689,38 @@ export default function NodesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View VMs Dialog */}
+      {/* View Workspaces Dialog */}
       <Dialog open={!!nodeForVMs} onOpenChange={() => setNodeForVMs(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>VMs on {nodeForVMs?.name}</DialogTitle>
+            <DialogTitle>Workspaces on {nodeForVMs?.siteName}</DialogTitle>
             <DialogDescription>
-              {nodeForVMs?.vmsRunning} virtual machines running
+              Workspaces running on this site
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2 max-h-[400px] overflow-y-auto">
-            {Array.from({ length: nodeForVMs?.vmsRunning || 0 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <Server className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">vm-{100 + i}</p>
-                    <p className="text-xs text-muted-foreground">2 vCPU / 4GB RAM</p>
+            {workspaces
+              ?.filter(ws => sites?.find(s => s.id === ws.siteId)?.id === nodeForVMs?.siteId)
+              .map((ws) => (
+                <div key={ws.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    <Server className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{ws.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ws.virtualMachines?.length || 0} VMs / {ws.virtualNetworks?.length || 0} Networks
+                      </p>
+                    </div>
                   </div>
+                  <Badge variant={ws.locked ? "secondary" : "default"}>
+                    {ws.locked ? "Locked" : "Active"}
+                  </Badge>
                 </div>
-                <Badge variant="default">Running</Badge>
+              )) || (
+              <div className="text-center py-4 text-muted-foreground">
+                No workspaces on this site
               </div>
-            ))}
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNodeForVMs(null)}>
@@ -643,10 +735,10 @@ export default function NodesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {nodeForMaintenance?.status === "online" ? "Enter Maintenance Mode?" : "Exit Maintenance Mode?"}
+              {getNodeStatus(nodeForMaintenance!) === "online" ? "Enter Maintenance Mode?" : "Exit Maintenance Mode?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {nodeForMaintenance?.status === "online"
+              {getNodeStatus(nodeForMaintenance!) === "online"
                 ? `This will migrate all VMs off ${nodeForMaintenance?.name} and prevent new VMs from being scheduled.`
                 : `This will bring ${nodeForMaintenance?.name} back online and allow VMs to be scheduled.`}
             </AlertDialogDescription>
@@ -654,7 +746,7 @@ export default function NodesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => handleMaintenance(nodeForMaintenance?.status === "online")}
+              onClick={() => handleMaintenance(getNodeStatus(nodeForMaintenance!) === "online")}
               disabled={isLoading === "maintenance"}
             >
               {isLoading === "maintenance" ? (
@@ -662,7 +754,7 @@ export default function NodesPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing...
                 </>
-              ) : nodeForMaintenance?.status === "online" ? (
+              ) : getNodeStatus(nodeForMaintenance!) === "online" ? (
                 "Enter Maintenance"
               ) : (
                 "Exit Maintenance"

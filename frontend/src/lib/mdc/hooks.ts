@@ -9,6 +9,8 @@ import {
   Workspace,
   RemoteNetwork,
   WorkspaceDescriptor,
+  RemoteNetworkUpdate,
+  OrganizationDescriptor,
 } from './types';
 import { useMemo, useCallback } from 'react';
 import { getMsalInstance, loginRequest } from '@/lib/msal-config';
@@ -258,6 +260,61 @@ export function useRemoteNetwork(
     enabled: !!id,
     staleTime: 30 * 1000,
     ...options,
+  });
+}
+
+export function useUpdateRemoteNetwork() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, update }: { id: string; update: RemoteNetworkUpdate }) =>
+      client.updateRemoteNetwork(id, update),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.remoteNetwork(id) });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.remoteNetworks() });
+    },
+  });
+}
+
+// ==================== Organizations Mutations ====================
+
+export function useCreateOrganization() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (descriptor: OrganizationDescriptor) =>
+      client.createOrganization(descriptor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.organizations() });
+    },
+  });
+}
+
+export function useUpdateOrganization() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, descriptor }: { id: string; descriptor: Partial<OrganizationDescriptor> }) =>
+      client.updateOrganization(id, descriptor),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.organization(id) });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.organizations() });
+    },
+  });
+}
+
+export function useDeleteOrganization() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.deleteOrganization(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.organizations() });
+    },
   });
 }
 
