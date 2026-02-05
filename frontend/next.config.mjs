@@ -22,6 +22,16 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Disable caching for HTML pages to ensure fresh content
+        source: '/((?!_next/static|_next/image|favicon.ico).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
     ]
   },
   // Optimize for production

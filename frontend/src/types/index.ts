@@ -55,30 +55,6 @@ export interface VMTemplate {
   category: 'linux' | 'windows' | 'container';
 }
 
-// Kubernetes Types
-export interface KubernetesCluster {
-  id: string;
-  name: string;
-  projectId: string;
-  status: 'running' | 'provisioning' | 'updating' | 'error';
-  version: string;
-  region: string;
-  nodeCount: number;
-  nodePools: NodePool[];
-  endpoint?: string;
-  createdAt: string;
-}
-
-export interface NodePool {
-  id: string;
-  name: string;
-  nodeCount: number;
-  minNodes: number;
-  maxNodes: number;
-  machineType: string;
-  status: 'active' | 'scaling' | 'error';
-}
-
 // Networking Types
 export interface VPC {
   id: string;

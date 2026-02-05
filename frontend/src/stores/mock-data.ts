@@ -1,7 +1,6 @@
 import {
   VM,
   VMTemplate,
-  KubernetesCluster,
   VPC,
   SecurityGroup,
   LoadBalancer,
@@ -151,39 +150,6 @@ export const mockVMs: VM[] = [
     zone: 'us-east-1a',
     createdAt: '2024-03-10T16:00:00Z',
     tags: ['development'],
-  },
-];
-
-// Kubernetes Clusters
-export const mockK8sClusters: KubernetesCluster[] = [
-  {
-    id: 'k8s-001',
-    name: 'prod-cluster-main',
-    projectId: 'proj-1',
-    status: 'running',
-    version: '1.29.1',
-    region: 'us-east-1',
-    nodeCount: 6,
-    nodePools: [
-      { id: 'np-1', name: 'default-pool', nodeCount: 3, minNodes: 2, maxNodes: 10, machineType: 'standard-4x8', status: 'active' },
-      { id: 'np-2', name: 'high-memory', nodeCount: 3, minNodes: 1, maxNodes: 5, machineType: 'highmem-8x32', status: 'active' },
-    ],
-    endpoint: 'https://k8s-prod.cloudplatform.io:6443',
-    createdAt: '2024-01-20T08:00:00Z',
-  },
-  {
-    id: 'k8s-002',
-    name: 'staging-cluster',
-    projectId: 'proj-2',
-    status: 'running',
-    version: '1.29.1',
-    region: 'us-east-1',
-    nodeCount: 3,
-    nodePools: [
-      { id: 'np-3', name: 'default-pool', nodeCount: 3, minNodes: 1, maxNodes: 5, machineType: 'standard-2x4', status: 'active' },
-    ],
-    endpoint: 'https://k8s-staging.cloudplatform.io:6443',
-    createdAt: '2024-02-01T10:00:00Z',
   },
 ];
 
@@ -1168,7 +1134,6 @@ export const billingData = {
     { resource: 'Object Storage', usage: 170, unit: 'GB', cost: 25.50 },
     { resource: 'Network Egress', usage: 450, unit: 'GB', cost: 40.50 },
     { resource: 'Load Balancers', usage: 744, unit: 'hours', cost: 148.80 },
-    { resource: 'Kubernetes', usage: 2, unit: 'clusters', cost: 300.00 },
     { resource: 'Managed Databases', usage: 3, unit: 'instances', cost: 166.12 },
   ],
 };

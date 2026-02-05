@@ -5,12 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Server,
-  Container,
-  Network,
-  HardDrive,
-  Database,
-  BarChart3,
-  CreditCard,
   Settings,
   LayoutDashboard,
   Shield,
@@ -22,6 +16,11 @@ import {
   Wallet,
   Cloud,
   ChevronDown,
+  Network,
+  HardDrive,
+  Database,
+  BarChart3,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -78,23 +77,14 @@ const tenantNavItems = [
     ],
   },
   {
-    title: "Kubernetes",
-    icon: Container,
-    items: [
-      { title: "Clusters", url: "/dashboard/kubernetes/clusters" },
-      { title: "Node Pools", url: "/dashboard/kubernetes/node-pools" },
-      { title: "Registry", url: "/dashboard/kubernetes/registry" },
-    ],
-  },
-  {
     title: "Networking",
     icon: Network,
     items: [
       { title: "VPCs", url: "/dashboard/networking/vpcs" },
       { title: "Subnets", url: "/dashboard/networking/subnets" },
       { title: "Security Groups", url: "/dashboard/networking/security-groups" },
-      { title: "Load Balancers", url: "/dashboard/networking/load-balancers" },
       { title: "Public IPs", url: "/dashboard/networking/public-ips" },
+      { title: "Load Balancers", url: "/dashboard/networking/load-balancers" },
       { title: "DNS", url: "/dashboard/networking/dns" },
     ],
   },
@@ -102,9 +92,9 @@ const tenantNavItems = [
     title: "Storage",
     icon: HardDrive,
     items: [
-      { title: "Block Volumes", url: "/dashboard/storage/volumes" },
-      { title: "Object Storage", url: "/dashboard/storage/buckets" },
-      { title: "File Storage", url: "/dashboard/storage/file-shares" },
+      { title: "Volumes", url: "/dashboard/storage/volumes" },
+      { title: "Buckets", url: "/dashboard/storage/buckets" },
+      { title: "File Shares", url: "/dashboard/storage/file-shares" },
       { title: "Backups", url: "/dashboard/storage/backups" },
     ],
   },
@@ -132,7 +122,7 @@ const tenantNavItems = [
     items: [
       { title: "Usage", url: "/dashboard/billing/usage" },
       { title: "Invoices", url: "/dashboard/billing/invoices" },
-      { title: "Payment Methods", url: "/dashboard/billing/payment" },
+      { title: "Payment", url: "/dashboard/billing/payment" },
     ],
   },
   {

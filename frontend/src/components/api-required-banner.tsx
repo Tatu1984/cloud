@@ -4,6 +4,8 @@ import { AlertTriangle, Code2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
+// BUILD MARKER: 2024-02-05-v1 - Remove after debugging
+
 interface ApiRequiredBannerProps {
   featureName?: string;
   apis?: string[];
