@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, Camera, RotateCcw, Trash2, Server, Calendar, HardDrive } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +124,16 @@ export default function SnapshotsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Snapshots"
+        apis={[
+          "GET /api/snapshots",
+          "POST /api/snapshots",
+          "DELETE /api/snapshots/{id}",
+          "POST /api/snapshots/{id}/restore"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Snapshots</h1>

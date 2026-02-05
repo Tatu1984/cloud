@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, Network, Globe, Lock, Trash2, Loader2, Edit, Route, PlusCircle } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -124,6 +125,16 @@ export default function VPCsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Virtual Private Clouds"
+        apis={[
+          "GET /api/vpcs",
+          "POST /api/vpcs",
+          "PUT /api/vpcs/{id}",
+          "DELETE /api/vpcs/{id}"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Virtual Private Clouds</h1>

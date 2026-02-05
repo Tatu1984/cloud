@@ -93,6 +93,7 @@ import type {
   ServiceAccount,
   ServiceAccountWithKey,
 } from "@/lib/api/iam";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 export default function IAMPage() {
   const { toast } = useToast();
@@ -414,6 +415,14 @@ export default function IAMPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="IAM Management"
+        apis={[
+          "GET /api/admin/iam/users",
+          "GET /api/admin/iam/roles",
+          "POST /api/admin/iam/policies",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">IAM Management</h1>

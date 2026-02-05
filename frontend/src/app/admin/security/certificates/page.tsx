@@ -64,6 +64,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 interface Certificate {
   id: string;
@@ -184,6 +185,14 @@ export default function CertificatesPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Certificates"
+        apis={[
+          "GET /api/admin/certificates",
+          "POST /api/admin/certificates",
+          "DELETE /api/admin/certificates/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Certificates</h1>

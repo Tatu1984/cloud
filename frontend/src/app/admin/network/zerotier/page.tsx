@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRemoteNetworks, useUpdateRemoteNetwork, useSites, useWorkspaces } from "@/lib/mdc/hooks";
 import { RemoteNetwork, RemoteNetworkMember } from "@/lib/mdc/types";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Helper to get CIDR from IP assignment pools
 function getNetworkCIDR(network: RemoteNetwork): string {
@@ -272,6 +273,10 @@ export default function ZeroTierPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Remote Networks (Admin)"
+        requiredApis={["GET /api/admin/zerotier/networks", "POST /api/admin/zerotier/networks"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Remote Networks</h1>

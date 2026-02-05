@@ -66,6 +66,7 @@ import { useToast } from "@/hooks/use-toast";
 import { mockTenants } from "@/stores/mock-data";
 import { Tenant } from "@/types";
 import { format } from "date-fns";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 export default function TenantsPage() {
   const { toast } = useToast();
@@ -193,6 +194,14 @@ export default function TenantsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Tenant Management"
+        apis={[
+          "GET /api/admin/tenants",
+          "POST /api/admin/tenants",
+          "PUT /api/admin/tenants/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>

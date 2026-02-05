@@ -21,6 +21,7 @@ import {
   Edit,
   RefreshCw,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -161,6 +162,17 @@ export default function FileSharesPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="File Shares"
+        apis={[
+          "GET /api/file-shares",
+          "POST /api/file-shares",
+          "PUT /api/file-shares/{id}",
+          "DELETE /api/file-shares/{id}",
+          "PUT /api/file-shares/{id}/acl"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">File Shares</h1>

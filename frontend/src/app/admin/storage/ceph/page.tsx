@@ -61,6 +61,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 interface CephCluster {
   id: string;
@@ -198,6 +199,14 @@ export default function CephPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Ceph Clusters"
+        apis={[
+          "GET /api/admin/ceph/clusters",
+          "POST /api/admin/ceph/clusters",
+          "GET /api/admin/ceph/health",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Ceph Clusters</h1>

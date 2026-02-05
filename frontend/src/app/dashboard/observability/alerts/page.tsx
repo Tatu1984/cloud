@@ -24,6 +24,7 @@ import {
   Filter,
   RefreshCw,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -588,6 +589,17 @@ export default function AlertsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Alerts"
+        apis={[
+          "GET /api/alerts",
+          "POST /api/alerts/rules",
+          "PUT /api/alerts/rules/{id}",
+          "DELETE /api/alerts/rules/{id}",
+          "POST /api/alerts/{id}/acknowledge"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Alerts</h1>

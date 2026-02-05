@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock audit logs
 const mockAuditLogs = [
@@ -209,6 +210,14 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Audit Logs (Admin)"
+        apis={[
+          "GET /api/admin/audit",
+          "POST /api/admin/audit/search",
+          "POST /api/admin/audit/export",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>

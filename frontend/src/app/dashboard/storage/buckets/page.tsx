@@ -21,6 +21,7 @@ import {
   Clock,
   Eye,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,6 +208,18 @@ export default function BucketsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Object Storage (Buckets)"
+        apis={[
+          "GET /api/buckets",
+          "POST /api/buckets",
+          "PUT /api/buckets/{id}",
+          "DELETE /api/buckets/{id}",
+          "GET /api/buckets/{id}/objects",
+          "PUT /api/buckets/{id}/lifecycle"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Object Storage</h1>

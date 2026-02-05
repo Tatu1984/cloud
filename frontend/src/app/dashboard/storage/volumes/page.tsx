@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, HardDrive, Link2, Loader2, Camera, Maximize2, Unlink } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -149,6 +150,18 @@ export default function VolumesPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Block Volumes"
+        apis={[
+          "GET /api/volumes",
+          "POST /api/volumes",
+          "PUT /api/volumes/{id}",
+          "DELETE /api/volumes/{id}",
+          "POST /api/volumes/{id}/attach",
+          "POST /api/volumes/{id}/detach"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Block Volumes</h1>

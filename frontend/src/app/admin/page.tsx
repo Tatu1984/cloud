@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { mockDatacenters, mockTenants } from "@/stores/mock-data";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import {
   ChartConfig,
   ChartContainer,
@@ -66,6 +67,14 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Admin Dashboard"
+        apis={[
+          "GET /api/admin/stats",
+          "GET /api/admin/overview",
+          "GET /api/admin/alerts"
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Cloud Operator Console</h1>

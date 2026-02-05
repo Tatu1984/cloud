@@ -28,6 +28,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,7 +71,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 type ActionType = "create" | "update" | "delete" | "login" | "logout" | "view" | "export" | "invite" | "revoke";
-type ResourceType = "vm" | "volume" | "database" | "network" | "user" | "api_key" | "settings" | "billing" | "kubernetes";
+type ResourceType = "vm" | "volume" | "database" | "network" | "user" | "api_key" | "settings" | "billing";
 type Severity = "info" | "warning" | "critical";
 
 interface AuditLogEntry {
@@ -273,21 +274,6 @@ const auditLogEntries: AuditLogEntry[] = [
     severity: "info",
     details: { format: "PDF", period: "January 2026" },
   },
-  {
-    id: "audit-012",
-    timestamp: "2026-01-11T14:20:18Z",
-    action: "create",
-    resourceType: "kubernetes",
-    resourceName: "staging-cluster-new",
-    resourceId: "k8s-003",
-    actor: { id: "user-003", name: "Mike Chen", email: "mike.chen@acme.com", type: "user" },
-    ipAddress: "203.0.113.78",
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-    location: "Los Angeles, US",
-    status: "success",
-    severity: "info",
-    details: { version: "1.29.1", nodeCount: 3, region: "us-west-1" },
-  },
 ];
 
 const actionConfig: Record<ActionType, { label: string; icon: React.ElementType; color: string }> = {
@@ -311,7 +297,6 @@ const resourceTypeConfig: Record<ResourceType, { label: string; icon: React.Elem
   api_key: { label: "API Key", icon: Key },
   settings: { label: "Settings", icon: Settings },
   billing: { label: "Billing", icon: Download },
-  kubernetes: { label: "Kubernetes", icon: Server },
 };
 
 const severityConfig: Record<Severity, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
@@ -384,6 +369,16 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Audit Log"
+        apis={[
+          "GET /api/audit-logs",
+          "GET /api/audit-logs/{id}",
+          "POST /api/audit-logs/search",
+          "POST /api/audit-logs/export"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Audit Log</h1>

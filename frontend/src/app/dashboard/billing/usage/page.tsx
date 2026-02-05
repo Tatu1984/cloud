@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,16 @@ const serviceBreakdown = [
 export default function BillingUsagePage() {
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Usage & Billing"
+        apis={[
+          "GET /api/billing/usage",
+          "GET /api/billing/usage/breakdown",
+          "GET /api/billing/costs",
+          "POST /api/billing/usage/export"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Usage & Billing</h1>

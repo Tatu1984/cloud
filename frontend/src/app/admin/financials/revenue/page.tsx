@@ -43,6 +43,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, XAxis, YAxis, Bar, BarChart, ResponsiveContainer } from "recharts";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock revenue data
 const monthlyRevenue = [
@@ -87,6 +88,10 @@ export default function RevenuePage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Revenue"
+        apis={["GET /api/admin/revenue", "GET /api/admin/revenue/metrics"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Revenue</h1>

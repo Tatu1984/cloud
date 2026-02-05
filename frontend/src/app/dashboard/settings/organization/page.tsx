@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +82,6 @@ const resourceQuotas = {
   storage: { used: 2500, limit: 10000, label: "Storage (GB)" },
   publicIps: { used: 8, limit: 25, label: "Public IPs" },
   loadBalancers: { used: 3, limit: 10, label: "Load Balancers" },
-  k8sClusters: { used: 2, limit: 5, label: "Kubernetes Clusters" },
   databases: { used: 3, limit: 10, label: "Managed Databases" },
 };
 
@@ -117,6 +117,16 @@ export default function OrganizationPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Organization Settings"
+        apis={[
+          "GET /api/organization",
+          "PUT /api/organization",
+          "GET /api/organization/quotas",
+          "PUT /api/organization/quotas"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Organization Settings</h1>

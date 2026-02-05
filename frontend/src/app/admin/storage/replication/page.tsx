@@ -69,6 +69,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { format } from "date-fns";
 
 // Mock replication jobs
@@ -282,6 +283,14 @@ export default function ReplicationPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Replication"
+        apis={[
+          "GET /api/admin/replication",
+          "POST /api/admin/replication/policies",
+          "PUT /api/admin/replication/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Replication</h1>

@@ -24,6 +24,7 @@ import {
   Archive,
   FileArchive,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -356,6 +357,17 @@ export default function BackupsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Database Backups"
+        apis={[
+          "GET /api/database-backups",
+          "POST /api/database-backups",
+          "DELETE /api/database-backups/{id}",
+          "POST /api/database-backups/{id}/restore",
+          "GET /api/database-backup-policies"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Database Backups</h1>

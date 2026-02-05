@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Scale,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -303,6 +304,17 @@ export default function PublicIpsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Public IPs"
+        apis={[
+          "GET /api/public-ips",
+          "POST /api/public-ips",
+          "DELETE /api/public-ips/{id}",
+          "POST /api/public-ips/{id}/associate",
+          "POST /api/public-ips/{id}/disassociate"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Public IPs</h1>

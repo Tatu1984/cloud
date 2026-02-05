@@ -14,6 +14,7 @@ import {
   Copy,
   Filter,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -290,6 +291,16 @@ export default function SubnetsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Subnets"
+        apis={[
+          "GET /api/subnets",
+          "POST /api/subnets",
+          "PUT /api/subnets/{id}",
+          "DELETE /api/subnets/{id}"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Subnets</h1>

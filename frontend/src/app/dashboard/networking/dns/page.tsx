@@ -20,6 +20,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -268,6 +269,18 @@ export default function DNSPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="DNS Management"
+        apis={[
+          "GET /api/dns/zones",
+          "POST /api/dns/zones",
+          "DELETE /api/dns/zones/{id}",
+          "GET /api/dns/zones/{id}/records",
+          "POST /api/dns/zones/{id}/records",
+          "DELETE /api/dns/records/{id}"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">DNS Management</h1>

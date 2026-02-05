@@ -17,6 +17,7 @@ import {
   Calendar,
   Activity,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,7 +108,7 @@ const apiKeys: APIKey[] = [
     expiresAt: "2026-02-20T14:30:00Z",
     lastUsed: "2026-01-12T08:15:00Z",
     status: "active",
-    permissions: ["compute:read", "compute:write", "kubernetes:read", "kubernetes:write"],
+    permissions: ["compute:read", "compute:write", "storage:read", "storage:write"],
     createdBy: "Sarah Johnson",
   },
   {
@@ -163,8 +164,6 @@ const availablePermissions = [
   { id: "storage:write", label: "Storage (Write)", category: "Storage" },
   { id: "network:read", label: "Network (Read)", category: "Network" },
   { id: "network:write", label: "Network (Write)", category: "Network" },
-  { id: "kubernetes:read", label: "Kubernetes (Read)", category: "Kubernetes" },
-  { id: "kubernetes:write", label: "Kubernetes (Write)", category: "Kubernetes" },
   { id: "database:read", label: "Database (Read)", category: "Database" },
   { id: "database:write", label: "Database (Write)", category: "Database" },
   { id: "billing:read", label: "Billing (Read)", category: "Billing" },
@@ -295,6 +294,16 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="API Keys"
+        apis={[
+          "GET /api/api-keys",
+          "POST /api/api-keys",
+          "DELETE /api/api-keys/{id}",
+          "POST /api/api-keys/{id}/revoke"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">API Keys</h1>

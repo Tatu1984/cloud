@@ -71,6 +71,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock pricing data
 const computePricing = [
@@ -165,6 +166,10 @@ export default function PricingPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Pricing"
+        apis={["GET /api/admin/pricing", "PUT /api/admin/pricing", "POST /api/admin/discounts"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pricing</h1>

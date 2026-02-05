@@ -70,6 +70,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { mockProxmoxClusters, ProxmoxCluster } from "@/stores/mock-data";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 const statusConfig = {
   healthy: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
@@ -113,6 +114,14 @@ export default function ClustersPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Proxmox Clusters"
+        apis={[
+          "GET /api/admin/clusters",
+          "POST /api/admin/clusters",
+          "PUT /api/admin/clusters/{id}"
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Proxmox Clusters</h1>

@@ -20,6 +20,7 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -433,6 +434,16 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Logs"
+        apis={[
+          "GET /api/logs",
+          "POST /api/logs/search",
+          "GET /api/logs/sources",
+          "POST /api/logs/export"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Logs</h1>

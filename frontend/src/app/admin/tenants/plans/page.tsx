@@ -72,6 +72,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { mockTenants } from "@/stores/mock-data";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock plans data
 const mockPlans = [
@@ -298,6 +299,14 @@ export default function PlansPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Plans & Quotas"
+        apis={[
+          "GET /api/admin/plans",
+          "POST /api/admin/plans",
+          "PUT /api/admin/plans/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Plans & Quotas</h1>

@@ -74,6 +74,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Search } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 interface OnboardingRequest {
   id: string;
@@ -301,6 +302,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Tenant Onboarding"
+        apis={[
+          "GET /api/admin/onboarding",
+          "POST /api/admin/onboarding/{id}/approve",
+          "POST /api/admin/onboarding/{id}/reject",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenant Onboarding</h1>

@@ -44,6 +44,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock usage data
 const resourceUsage = [
@@ -163,6 +164,10 @@ export default function UsagePage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Usage Analytics"
+        apis={["GET /api/admin/usage", "GET /api/admin/usage/trends"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Usage Analytics</h1>

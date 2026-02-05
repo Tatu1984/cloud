@@ -14,6 +14,7 @@ import {
   Server,
   Layers,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -211,6 +212,16 @@ export default function MetricsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Metrics"
+        apis={[
+          "GET /api/metrics",
+          "GET /api/metrics/{resourceId}",
+          "GET /api/metrics/aggregated",
+          "POST /api/metrics/query"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Metrics</h1>

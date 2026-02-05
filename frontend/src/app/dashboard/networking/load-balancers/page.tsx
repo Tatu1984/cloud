@@ -22,6 +22,7 @@ import {
   Globe,
   RefreshCw,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -340,6 +341,17 @@ export default function LoadBalancersPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Load Balancers"
+        apis={[
+          "GET /api/load-balancers",
+          "POST /api/load-balancers",
+          "PUT /api/load-balancers/{id}",
+          "DELETE /api/load-balancers/{id}",
+          "PUT /api/load-balancers/{id}/targets"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Load Balancers</h1>

@@ -41,6 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { mockDatacenters } from "@/stores/mock-data";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 interface NetworkDevice {
   id: string;
@@ -167,6 +168,10 @@ export default function TopologyPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Network Topology"
+        requiredApis={["GET /api/admin/network/topology", "PUT /api/admin/network/topology"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Network Topology</h1>

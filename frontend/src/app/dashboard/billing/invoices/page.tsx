@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -215,6 +216,16 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Invoices"
+        apis={[
+          "GET /api/billing/invoices",
+          "GET /api/billing/invoices/{id}",
+          "GET /api/billing/invoices/{id}/pdf",
+          "POST /api/billing/invoices/{id}/pay"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>

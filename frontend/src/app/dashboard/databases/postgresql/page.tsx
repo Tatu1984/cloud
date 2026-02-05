@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, Database, Activity, Clock, Copy, Loader2, ExternalLink, Trash2, Square, Maximize2, Save } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -138,6 +139,17 @@ export default function PostgreSQLPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="PostgreSQL Databases"
+        apis={[
+          "GET /api/databases/postgresql",
+          "POST /api/databases/postgresql",
+          "PUT /api/databases/postgresql/{id}",
+          "DELETE /api/databases/postgresql/{id}",
+          "POST /api/databases/postgresql/{id}/backup"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">PostgreSQL Databases</h1>

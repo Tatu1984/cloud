@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal, Shield, ArrowDownLeft, ArrowUpRight, Trash2, Loader2, Edit, Server } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -119,6 +120,17 @@ export default function SecurityGroupsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Security Groups"
+        apis={[
+          "GET /api/security-groups",
+          "POST /api/security-groups",
+          "PUT /api/security-groups/{id}",
+          "DELETE /api/security-groups/{id}",
+          "PUT /api/security-groups/{id}/rules"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Security Groups</h1>

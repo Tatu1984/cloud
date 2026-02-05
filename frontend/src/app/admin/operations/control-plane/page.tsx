@@ -64,6 +64,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock control plane services
 const mockServices = [
@@ -290,6 +291,14 @@ export default function ControlPlanePage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Control Plane"
+        apis={[
+          "GET /api/admin/services",
+          "PUT /api/admin/services/{id}",
+          "POST /api/admin/services/{id}/restart",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Control Plane</h1>

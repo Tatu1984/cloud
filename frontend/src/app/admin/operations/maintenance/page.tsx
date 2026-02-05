@@ -73,6 +73,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock maintenance windows
 const mockMaintenanceWindows = [
@@ -254,6 +255,14 @@ export default function MaintenancePage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Maintenance"
+        apis={[
+          "GET /api/admin/maintenance",
+          "POST /api/admin/maintenance",
+          "DELETE /api/admin/maintenance/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Maintenance</h1>

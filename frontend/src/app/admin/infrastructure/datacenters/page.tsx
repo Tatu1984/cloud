@@ -36,6 +36,7 @@ import {
   ChartContainer,
 } from "@/components/ui/chart";
 import { Area, AreaChart } from "recharts";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 const chartConfig = {
   cpu: { label: "CPU", color: "hsl(var(--chart-1))" },
@@ -59,6 +60,14 @@ export default function DatacentersPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Datacenters"
+        apis={[
+          "GET /api/admin/datacenters",
+          "POST /api/admin/datacenters",
+          "PUT /api/admin/datacenters/{id}"
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Datacenters</h1>

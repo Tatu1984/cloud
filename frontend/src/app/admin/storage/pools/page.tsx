@@ -66,6 +66,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 interface StoragePool {
   id: string;
@@ -223,6 +224,14 @@ export default function PoolsPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Storage Pools"
+        apis={[
+          "GET /api/admin/storage/pools",
+          "POST /api/admin/storage/pools",
+          "PUT /api/admin/storage/pools/{id}",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Storage Pools</h1>

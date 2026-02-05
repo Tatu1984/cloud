@@ -78,6 +78,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, XAxis, YAxis, Bar, BarChart } from "recharts";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Generate traffic data
 const generateTrafficData = () => {
@@ -226,6 +227,10 @@ export default function TrafficPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Traffic Control"
+        requiredApis={["GET /api/admin/network/traffic", "PUT /api/admin/network/qos"]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Traffic Control</h1>

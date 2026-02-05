@@ -24,6 +24,7 @@ import {
   AlertCircle,
   XCircle,
 } from "lucide-react";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -290,6 +291,17 @@ export default function MySQLPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="MySQL Databases"
+        apis={[
+          "GET /api/databases/mysql",
+          "POST /api/databases/mysql",
+          "PUT /api/databases/mysql/{id}",
+          "DELETE /api/databases/mysql/{id}",
+          "POST /api/databases/mysql/{id}/backup"
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">MySQL Databases</h1>

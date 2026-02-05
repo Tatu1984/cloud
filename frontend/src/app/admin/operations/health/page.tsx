@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ApiRequiredBanner } from "@/components/api-required-banner";
 
 // Mock health checks
 const healthChecks = [
@@ -173,6 +174,13 @@ export default function HealthPage() {
 
   return (
     <div className="space-y-6">
+      <ApiRequiredBanner
+        featureName="Service Health"
+        apis={[
+          "GET /api/admin/health",
+          "GET /api/admin/health/metrics",
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Service Health</h1>
