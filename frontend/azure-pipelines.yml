@@ -35,6 +35,11 @@ stages:
             displayName: 'Build Next.js app'
             env:
               NEXT_PUBLIC_API_URL: $(NEXT_PUBLIC_API_URL)
+              NEXT_PUBLIC_MDC_API_URL: $(NEXT_PUBLIC_MDC_API_URL)
+              NEXT_PUBLIC_ENTRA_CLIENT_ID: $(NEXT_PUBLIC_ENTRA_CLIENT_ID)
+              NEXT_PUBLIC_ENTRA_TENANT_ID: $(NEXT_PUBLIC_ENTRA_TENANT_ID)
+              NEXT_PUBLIC_ENTRA_REDIRECT_URI: $(NEXT_PUBLIC_ENTRA_REDIRECT_URI)
+              NEXT_PUBLIC_ENTRA_AUTHORITY: $(NEXT_PUBLIC_ENTRA_AUTHORITY)
 
           - script: |
               cp -r .next/static .next/standalone/.next/static
