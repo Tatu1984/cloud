@@ -17,8 +17,29 @@ import {
   RemoteNetworkUpdate,
 } from './types';
 
-// Default to localhost for development, can be overridden via environment
-const MDC_BASE_URL = process.env.NEXT_PUBLIC_MDC_API_URL || 'http://localhost:5000';
+// Determine MDC API URL based on environment
+// In production (non-localhost), default to the production MDC API
+const getMdcBaseUrl = () => {
+  // If explicitly set via environment variable, use that
+  if (process.env.NEXT_PUBLIC_MDC_API_URL) {
+    return process.env.NEXT_PUBLIC_MDC_API_URL;
+  }
+
+  // In browser, check if we're on localhost
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' ||
+                        window.location.hostname === '127.0.0.1';
+    if (!isLocalhost) {
+      // Production environment - use production MDC API
+      return 'https://www.microdatacluster.com';
+    }
+  }
+
+  // Default for local development
+  return 'http://localhost:5000';
+};
+
+const MDC_BASE_URL = getMdcBaseUrl();
 
 export interface MDCClientConfig {
   baseUrl?: string;
