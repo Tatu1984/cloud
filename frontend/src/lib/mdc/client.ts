@@ -17,9 +17,12 @@ import {
   RemoteNetworkUpdate,
 } from './types';
 
-// Determine MDC API URL based on environment
-// In production (non-localhost), default to the production MDC API
-const getMdcBaseUrl = () => {
+// Production MDC API URL
+const PRODUCTION_MDC_URL = 'https://www.microdatacluster.com';
+const LOCAL_MDC_URL = 'http://localhost:5000';
+
+// Get MDC API URL - called at runtime, not build time
+function getMdcBaseUrl(): string {
   // If explicitly set via environment variable, use that
   if (process.env.NEXT_PUBLIC_MDC_API_URL) {
     return process.env.NEXT_PUBLIC_MDC_API_URL;
@@ -27,19 +30,18 @@ const getMdcBaseUrl = () => {
 
   // In browser, check if we're on localhost
   if (typeof window !== 'undefined') {
-    const isLocalhost = window.location.hostname === 'localhost' ||
-                        window.location.hostname === '127.0.0.1';
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+    // Production environment - use production MDC API
     if (!isLocalhost) {
-      // Production environment - use production MDC API
-      return 'https://www.microdatacluster.com';
+      return PRODUCTION_MDC_URL;
     }
   }
 
-  // Default for local development
-  return 'http://localhost:5000';
-};
-
-const MDC_BASE_URL = getMdcBaseUrl();
+  // Default for local development or server-side (will be overridden in browser)
+  return LOCAL_MDC_URL;
+}
 
 export interface MDCClientConfig {
   baseUrl?: string;
@@ -51,7 +53,8 @@ export class MDCClient {
   private getAccessToken?: () => Promise<string | null>;
 
   constructor(config: MDCClientConfig = {}) {
-    this.baseUrl = config.baseUrl || MDC_BASE_URL;
+    // Call getMdcBaseUrl() at runtime so browser can detect hostname
+    this.baseUrl = config.baseUrl || getMdcBaseUrl();
     this.getAccessToken = config.getAccessToken;
   }
 
