@@ -9,8 +9,8 @@ pool:
 
 variables:
   azureSubscription: 'YOUR_SERVICE_CONNECTION_NAME'  # TODO: Replace with your service connection
-  webAppName: 'cloud-frontend-app'                   # TODO: Replace with your App Service name
-  resourceGroupName: 'cloud-frontend-rg'             # TODO: Replace with your resource group
+  webAppName: 'mdc-web-dashboard-preview-cheserbyewgyeddm'
+  resourceGroupName: 'YOUR_RESOURCE_GROUP'           # TODO: Replace with your resource group
   nodeVersion: '20.x'
 
 stages:
