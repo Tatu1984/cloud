@@ -28,19 +28,19 @@ function getMdcBaseUrl(): string {
     return process.env.NEXT_PUBLIC_MDC_API_URL;
   }
 
-  // In browser, check if we're on localhost
+  // In browser, check if we're on localhost for local development
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
 
-    // Production environment - use production MDC API
-    if (!isLocalhost) {
-      return PRODUCTION_MDC_URL;
+    // Only use localhost API when running locally
+    if (isLocalhost) {
+      return LOCAL_MDC_URL;
     }
   }
 
-  // Default for local development or server-side (will be overridden in browser)
-  return LOCAL_MDC_URL;
+  // Default to production URL (safe for SSR and production deployments)
+  return PRODUCTION_MDC_URL;
 }
 
 export interface MDCClientConfig {
