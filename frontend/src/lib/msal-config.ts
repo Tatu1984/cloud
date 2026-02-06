@@ -54,6 +54,7 @@ export const msalConfig: Configuration = {
 // Scopes for authentication - CIAM uses simpler scopes
 export const loginRequest = {
   scopes: ['openid', 'profile', 'email'],
+  prompt: 'select_account' as const, // Always show account picker
 };
 
 // Create MSAL instance
