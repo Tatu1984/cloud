@@ -25,6 +25,7 @@ const LOCAL_MDC_URL = 'http://localhost:5000';
 function getMdcBaseUrl(): string {
   // If explicitly set via environment variable, use that
   if (process.env.NEXT_PUBLIC_MDC_API_URL) {
+    console.log('[MDC Client] Using env var URL:', process.env.NEXT_PUBLIC_MDC_API_URL);
     return process.env.NEXT_PUBLIC_MDC_API_URL;
   }
 
@@ -32,14 +33,17 @@ function getMdcBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    console.log('[MDC Client] Browser hostname:', hostname, 'isLocalhost:', isLocalhost);
 
     // Only use localhost API when running locally
     if (isLocalhost) {
+      console.log('[MDC Client] Using local URL:', LOCAL_MDC_URL);
       return LOCAL_MDC_URL;
     }
   }
 
   // Default to production URL (safe for SSR and production deployments)
+  console.log('[MDC Client] Using production URL:', PRODUCTION_MDC_URL);
   return PRODUCTION_MDC_URL;
 }
 
