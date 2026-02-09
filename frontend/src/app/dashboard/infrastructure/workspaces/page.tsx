@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Globe,
   Plus,
@@ -13,6 +14,7 @@ import {
   Trash2,
   Eye,
   Settings,
+  Monitor,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,6 +104,7 @@ interface VMFormData {
 
 export default function WorkspacesPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
@@ -689,6 +692,16 @@ export default function WorkspacesPage() {
                           >
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              router.push(
+                                `/dashboard/infrastructure/workspaces/${workspace.id}/console`
+                              )
+                            }
+                          >
+                            <Monitor className="mr-2 h-4 w-4" />
+                            Console
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => handleManageWorkspace(workspace)}
