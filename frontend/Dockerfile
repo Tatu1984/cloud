@@ -46,5 +46,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+# MDC API uses a self-signed certificate; allow Node.js proxy to connect
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 CMD ["node", "server.js"]
