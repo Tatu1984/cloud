@@ -34,15 +34,8 @@ const nextConfig = {
       },
     ]
   },
-  // Proxy MDC API requests to avoid CORS issues
-  async rewrites() {
-    return [
-      {
-        source: '/mdc-api/:path*',
-        destination: 'https://www.microdatacluster.com/:path*',
-      },
-    ]
-  },
+  // MDC API proxy is handled by /api/mdc/[...path] route handler
+  // (Next.js rewrites can't handle the MDC self-signed SSL cert)
   // Optimize for production
   poweredByHeader: false, // Remove X-Powered-By header
   compress: true,

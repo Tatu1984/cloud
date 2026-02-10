@@ -17,11 +17,11 @@ import {
   RemoteNetworkUpdate,
 } from './types';
 
-// MDC API URL - proxy through Next.js to avoid CORS issues
-// In the browser, use the /mdc-api proxy; server-side can call directly
+// MDC API URL - proxy through Next.js API route to handle self-signed cert + CORS
+// In the browser, use the /api/mdc proxy; server-side can call directly
 const MDC_API_URL =
   typeof window !== 'undefined'
-    ? '/mdc-api'
+    ? '/api/mdc'
     : (process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com');
 
 export interface MDCClientConfig {
