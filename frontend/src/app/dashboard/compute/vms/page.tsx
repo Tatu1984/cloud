@@ -18,6 +18,7 @@ import {
   Network,
   AlertTriangle,
   RefreshCw,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConsoleOpenButton } from "@/components/console-open-button";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspaces, useSites } from "@/lib/mdc";
 import { VirtualMachine, Workspace, VirtualMachineNetworkAdapter } from "@/lib/mdc/types";
@@ -129,7 +131,6 @@ export default function VMsPage() {
 
   // Dialog states
   const [vmToDelete, setVmToDelete] = useState<ExtendedVM | null>(null);
-  const [vmForConsole, setVmForConsole] = useState<ExtendedVM | null>(null);
   const [vmForDetails, setVmForDetails] = useState<ExtendedVM | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
@@ -538,10 +539,11 @@ export default function VMsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setVmForConsole(vm)}>
-                              <Terminal className="mr-2 h-4 w-4" />
-                              Console
-                            </DropdownMenuItem>
+                            <ConsoleOpenButton
+                              variant="dropdown-item"
+                              workspaceId={vm.workspaceId}
+                              vm={String(vm.index)}
+                            />
                             <DropdownMenuItem onSelect={() => setVmForDetails(vm)}>
                               <ExternalLink className="mr-2 h-4 w-4" />
                               View Details
@@ -652,32 +654,6 @@ export default function VMsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Console Dialog */}
-      <Dialog open={!!vmForConsole} onOpenChange={() => setVmForConsole(null)}>
-        <DialogContent className="max-w-4xl h-[600px]">
-          <DialogHeader>
-            <DialogTitle>Console - {vmForConsole?.name}</DialogTitle>
-            <DialogDescription>
-              Terminal access to virtual machine in workspace {vmForConsole?.workspaceName}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 bg-black rounded-lg p-4 font-mono text-green-400 text-sm overflow-auto h-[450px]">
-            <div>Last login: {new Date().toLocaleString()}</div>
-            <div className="mt-2">
-              <span className="text-blue-400">{vmForConsole?.name}</span>
-              <span className="text-white">:</span>
-              <span className="text-blue-400">~</span>
-              <span className="text-white">$ </span>
-              <span className="animate-pulse">_</span>
-            </div>
-            <div className="mt-4 text-yellow-500 text-xs">
-              Note: Console access requires integration with ZT Bridge Guacamole.
-              Use the Guacamole web UI at /guacamole/ for actual console access.
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* VM Details Dialog */}
       <Dialog open={!!vmForDetails} onOpenChange={() => setVmForDetails(null)}>
         <DialogContent className="max-w-2xl">
@@ -775,15 +751,13 @@ export default function VMsPage() {
             <Button variant="outline" onClick={() => setVmForDetails(null)}>
               Close
             </Button>
-            <Button onClick={() => {
-              if (vmForDetails) {
-                setVmForDetails(null);
-                setVmForConsole(vmForDetails);
-              }
-            }}>
-              <Terminal className="mr-2 h-4 w-4" />
-              Open Console
-            </Button>
+            {vmForDetails && (
+              <ConsoleOpenButton
+                variant="button"
+                workspaceId={vmForDetails.workspaceId}
+                vm={String(vmForDetails.index)}
+              />
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

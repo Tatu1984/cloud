@@ -1,15 +1,19 @@
 "use client";
 
+import { useCallback, useRef } from "react";
 import { Monitor, ExternalLink, AppWindow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
 interface ConsoleOpenButtonProps {
@@ -43,6 +47,31 @@ export function ConsoleOpenButton({
   size = "sm",
 }: ConsoleOpenButtonProps) {
   const url = getConsoleUrl(workspaceId, vm);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Wait briefly to see if it's a double-click
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+      clickTimer.current = setTimeout(() => {
+        openNewTab(url);
+      }, 250);
+    },
+    [url]
+  );
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
+      openPopup(url, workspaceId);
+    },
+    [url, workspaceId]
+  );
 
   if (variant === "dropdown-item") {
     return (
@@ -66,23 +95,23 @@ export function ConsoleOpenButton({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size={size}>
-          <Monitor className="mr-2 h-3 w-3" />
-          Console
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onSelect={() => openNewTab(url)}>
-          <ExternalLink className="mr-2 h-4 w-4" />
-          New Tab
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openPopup(url, workspaceId)}>
-          <AppWindow className="mr-2 h-4 w-4" />
-          Popup Window
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size={size}
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+          >
+            <Monitor className="mr-2 h-3 w-3" />
+            Console
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Click: New Tab &middot; Double-click: Popup</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
