@@ -317,8 +317,9 @@ export default function WorkspaceDetailPage() {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              router.push(
-                                `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=${vm.index}`
+                              window.open(
+                                `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=${vm.index}`,
+                                '_blank'
                               )
                             }
                           >
@@ -366,8 +367,9 @@ export default function WorkspaceDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      router.push(
-                        `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=bastion`
+                      window.open(
+                        `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=bastion`,
+                        '_blank'
                       )
                     }
                   >
