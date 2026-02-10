@@ -44,6 +44,7 @@ stages:
           - script: |
               cp -r .next/static .next/standalone/.next/static
               cp -r public .next/standalone/public
+              cp start.js .next/standalone/start.js
             displayName: 'Prepare standalone package'
 
           - task: ArchiveFiles@2
@@ -82,4 +83,4 @@ stages:
                     appName: '$(webAppName)'
                     package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
                     runtimeStack: 'NODE|20-lts'
-                    startUpCommand: 'NODE_TLS_REJECT_UNAUTHORIZED=0 node server.js'
+                    startUpCommand: 'node start.js'

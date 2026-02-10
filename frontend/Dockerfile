@@ -39,6 +39,7 @@ RUN chown nextjs:nodejs .next
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/start.js ./start.js
 
 USER nextjs
 
@@ -49,4 +50,4 @@ ENV HOSTNAME="0.0.0.0"
 # MDC API uses a self-signed certificate; allow Node.js proxy to connect
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
-CMD ["node", "server.js"]
+CMD ["node", "start.js"]
