@@ -94,7 +94,8 @@ const statusConfig = {
   unknown: { icon: AlertCircle, color: "text-gray-500", variant: "outline" as const },
 };
 
-function getNodeStatus(node: SiteNode): "online" | "offline" | "maintenance" | "unknown" {
+function getNodeStatus(node: SiteNode | null): "online" | "offline" | "maintenance" | "unknown" {
+  if (!node) return "unknown";
   if (node.online) return "online";
   if (node.configured === false) return "maintenance";
   if (!node.online) return "offline";
