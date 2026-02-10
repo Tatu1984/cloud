@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Monitor,
@@ -12,9 +12,18 @@ import {
   RefreshCw,
   Clipboard,
   Power,
+  Server,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -28,54 +37,85 @@ import { getMsalInstance, loginRequest } from "@/lib/msal-config";
 const MDC_API_URL =
   process.env.NEXT_PUBLIC_MDC_API_URL || "https://www.microdatacluster.com";
 
-function getWsUrl(workspaceId: string): string {
-  // Convert http(s) URL to ws(s) URL
+// Dev/testing API key fallback
+const DEV_API_KEY = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY || "";
+
+type ConsoleTarget = "bastion" | number; // "bastion" or VM index (0-based)
+
+function getWsUrl(
+  workspaceId: string,
+  target: ConsoleTarget,
+  authParam: string
+): string {
   const base = MDC_API_URL.replace(/^http/, "ws");
-  return `${base}/odata/Workspaces(${workspaceId})/Console`;
+  const path =
+    target === "bastion"
+      ? `${base}/api/vnc/Workspaces(${workspaceId})/BastionConsole`
+      : `${base}/api/vnc/Workspaces(${workspaceId})/VirtualMachineConsole(${target})`;
+  return `${path}?${authParam}`;
 }
 
-async function getAccessToken(): Promise<string | null> {
+async function getAuthParam(): Promise<string> {
+  // Try JWT token from MSAL first
   const msalInstance = getMsalInstance();
-  if (!msalInstance) return null;
-
-  try {
-    await msalInstance.initialize();
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length === 0) return null;
-
-    const response = await msalInstance.acquireTokenSilent({
-      ...loginRequest,
-      account: accounts[0],
-    });
-
-    return response.accessToken;
-  } catch {
-    return null;
+  if (msalInstance) {
+    try {
+      await msalInstance.initialize();
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        const response = await msalInstance.acquireTokenSilent({
+          ...loginRequest,
+          account: accounts[0],
+        });
+        if (response.accessToken) {
+          return `token=${encodeURIComponent(response.accessToken)}`;
+        }
+      }
+    } catch {
+      // Fall through to API key
+    }
   }
+
+  // Fallback to dev API key
+  if (DEV_API_KEY) {
+    return `apikey=${encodeURIComponent(DEV_API_KEY)}`;
+  }
+
+  return "";
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
 export default function WorkspaceConsolePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const workspaceId = params.id as string;
+
+  // Read initial target from query string: ?vm=0 or ?vm=bastion (default)
+  const vmParam = searchParams.get("vm");
+  const initialTarget: ConsoleTarget =
+    vmParam !== null && vmParam !== "bastion" ? parseInt(vmParam, 10) : "bastion";
 
   const { data: workspace, isLoading: wsLoading } = useWorkspace(workspaceId);
 
   const screenRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
 
+  const [target, setTarget] = useState<ConsoleTarget>(initialTarget);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [noVNCLoaded, setNoVNCLoaded] = useState(false);
 
+  // Build list of connectable targets from workspace data
+  const vmList = workspace?.virtualMachines || [];
+  const hasBastion = !!workspace?.bastion;
+
   // Load noVNC from CDN
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Check if already loaded
     if ((window as any).__noVNC_RFB) {
       setNoVNCLoaded(true);
       return;
@@ -125,11 +165,16 @@ export default function WorkspaceConsolePage() {
     setErrorMsg("");
 
     try {
-      const token = await getAccessToken();
-      let wsUrl = getWsUrl(workspaceId);
-      if (token) {
-        wsUrl += `?access_token=${encodeURIComponent(token)}`;
+      const authParam = await getAuthParam();
+      if (!authParam) {
+        setErrorMsg(
+          "No authentication available. Sign in or configure a dev API key."
+        );
+        setStatus("error");
+        return;
       }
+
+      const wsUrl = getWsUrl(workspaceId, target, authParam);
 
       const rfb = new RFB(screenRef.current, wsUrl);
       rfbRef.current = rfb;
@@ -143,16 +188,19 @@ export default function WorkspaceConsolePage() {
       });
 
       rfb.addEventListener("disconnect", (e: any) => {
-        setStatus("disconnected");
         rfbRef.current = null;
         if (e.detail?.clean === false) {
           setErrorMsg("Connection lost unexpectedly");
           setStatus("error");
+        } else {
+          setStatus("disconnected");
         }
       });
 
       rfb.addEventListener("credentialsrequired", () => {
-        setErrorMsg("VNC credentials required (unexpected with Proxmox tickets)");
+        setErrorMsg(
+          "VNC credentials required (unexpected with Proxmox tickets)"
+        );
         setStatus("error");
       });
     } catch (err) {
@@ -161,7 +209,7 @@ export default function WorkspaceConsolePage() {
       );
       setStatus("error");
     }
-  }, [workspaceId, noVNCLoaded]);
+  }, [workspaceId, target, noVNCLoaded]);
 
   // Auto-connect when noVNC is loaded
   useEffect(() => {
@@ -186,6 +234,18 @@ export default function WorkspaceConsolePage() {
       rfbRef.current.disconnect();
       rfbRef.current = null;
     }
+    setStatus("disconnected");
+  };
+
+  const handleTargetChange = (value: string) => {
+    const newTarget: ConsoleTarget =
+      value === "bastion" ? "bastion" : parseInt(value, 10);
+    // Disconnect current session before switching
+    if (rfbRef.current) {
+      rfbRef.current.disconnect();
+      rfbRef.current = null;
+    }
+    setTarget(newTarget);
     setStatus("disconnected");
   };
 
@@ -227,10 +287,14 @@ export default function WorkspaceConsolePage() {
     }
   };
 
+  // Resolve display label for the current target
+  const targetLabel =
+    target === "bastion"
+      ? `Bastion${workspace?.bastion?.name ? ` (${workspace.bastion.name})` : ""}`
+      : `VM ${target}${vmList[target as number]?.name ? ` (${vmList[target as number].name})` : ""}`;
+
   const statusBadge = {
-    disconnected: (
-      <Badge variant="secondary">Disconnected</Badge>
-    ),
+    disconnected: <Badge variant="secondary">Disconnected</Badge>,
     connecting: (
       <Badge variant="outline" className="gap-1">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -268,17 +332,50 @@ export default function WorkspaceConsolePage() {
           <Monitor className="h-5 w-5 text-muted-foreground" />
           <div>
             <h1 className="text-lg font-semibold leading-none">
-              {wsLoading ? "Loading..." : `Console: ${workspace?.name || workspaceId}`}
+              {wsLoading
+                ? "Loading..."
+                : `Console: ${workspace?.name || workspaceId}`}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Bastion VM &mdash; {workspace?.bastion?.name || "Ubuntu Desktop"}
+              {targetLabel}
             </p>
           </div>
           {statusBadge[status]}
         </div>
 
         <TooltipProvider delayDuration={200}>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Target selector */}
+            <Select
+              value={target === "bastion" ? "bastion" : String(target)}
+              onValueChange={handleTargetChange}
+              disabled={status === "connecting"}
+            >
+              <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectValue placeholder="Select target" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bastion">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-3 w-3" />
+                    Bastion
+                    {workspace?.bastion?.name
+                      ? ` — ${workspace.bastion.name}`
+                      : ""}
+                  </div>
+                </SelectItem>
+                {vmList.map((vm, index) => (
+                  <SelectItem key={index} value={String(index)}>
+                    <div className="flex items-center gap-2">
+                      <Server className="h-3 w-3" />
+                      VM {index}
+                      {vm.name ? ` — ${vm.name}` : ""}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {status === "connected" && (
               <>
                 <Tooltip>
@@ -355,14 +452,15 @@ export default function WorkspaceConsolePage() {
       {/* Console area */}
       <div id="console-container" className="flex-1 bg-black relative">
         {/* Loading overlay */}
-        {(status === "connecting" || (!noVNCLoaded && status !== "error")) && (
+        {(status === "connecting" ||
+          (!noVNCLoaded && status !== "error")) && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-white mx-auto" />
               <p className="text-white/70 mt-3 text-sm">
                 {!noVNCLoaded
                   ? "Loading VNC client..."
-                  : "Connecting to bastion console..."}
+                  : `Connecting to ${targetLabel}...`}
               </p>
             </div>
           </div>
@@ -393,7 +491,9 @@ export default function WorkspaceConsolePage() {
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
             <div className="text-center">
               <Monitor className="h-10 w-10 text-white/40 mx-auto" />
-              <p className="text-white/60 mt-3 text-sm">Console disconnected</p>
+              <p className="text-white/60 mt-3 text-sm">
+                Console disconnected
+              </p>
               <Button variant="outline" className="mt-4" onClick={connect}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Reconnect
