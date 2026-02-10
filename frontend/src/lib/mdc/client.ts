@@ -17,8 +17,12 @@ import {
   RemoteNetworkUpdate,
 } from './types';
 
-// MDC API URL - use env var for local dev, otherwise production
-const MDC_API_URL = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com';
+// MDC API URL - proxy through Next.js to avoid CORS issues
+// In the browser, use the /mdc-api proxy; server-side can call directly
+const MDC_API_URL =
+  typeof window !== 'undefined'
+    ? '/mdc-api'
+    : (process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com');
 
 export interface MDCClientConfig {
   baseUrl?: string;

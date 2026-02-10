@@ -34,6 +34,15 @@ const nextConfig = {
       },
     ]
   },
+  // Proxy MDC API requests to avoid CORS issues
+  async rewrites() {
+    return [
+      {
+        source: '/mdc-api/:path*',
+        destination: 'https://www.microdatacluster.com/:path*',
+      },
+    ]
+  },
   // Optimize for production
   poweredByHeader: false, // Remove X-Powered-By header
   compress: true,
