@@ -44,11 +44,19 @@ export class MDCClient {
       'Accept': 'application/json',
     };
 
+    // Try MSAL Bearer token first
     if (this.getAccessToken) {
       const token = await this.getAccessToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        return headers;
       }
+    }
+
+    // Fallback to dev API key
+    const apiKey = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY;
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
     }
 
     return headers;
