@@ -40,6 +40,8 @@ stages:
               NEXT_PUBLIC_ENTRA_TENANT_ID: $(NEXT_PUBLIC_ENTRA_TENANT_ID)
               NEXT_PUBLIC_ENTRA_REDIRECT_URI: $(NEXT_PUBLIC_ENTRA_REDIRECT_URI)
               NEXT_PUBLIC_ENTRA_AUTHORITY: $(NEXT_PUBLIC_ENTRA_AUTHORITY)
+              NEXT_PUBLIC_MDC_DEV_API_KEY: $(NEXT_PUBLIC_MDC_DEV_API_KEY)
+              NEXT_PUBLIC_MDC_SCOPE: $(NEXT_PUBLIC_MDC_SCOPE)
 
           - script: |
               cp -r .next/static .next/standalone/.next/static

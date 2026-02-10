@@ -324,7 +324,7 @@ export default function WorkspaceConsolePage() {
             variant="ghost"
             size="icon"
             onClick={() =>
-              router.push("/dashboard/infrastructure/workspaces")
+              router.push(`/dashboard/infrastructure/workspaces/${workspaceId}`)
             }
           >
             <ArrowLeft className="h-4 w-4" />

@@ -206,10 +206,7 @@ export default function WorkspacesPage() {
   };
 
   const handleViewWorkspace = (workspace: Workspace) => {
-    toast({
-      title: "View Workspace",
-      description: `Opening details for ${workspace.name}`,
-    });
+    router.push(`/dashboard/infrastructure/workspaces/${workspace.id}`);
   };
 
   const handleManageWorkspace = (workspace: Workspace) => {
@@ -643,7 +640,11 @@ export default function WorkspacesPage() {
               </TableHeader>
               <TableBody>
                 {filteredWorkspaces.map((workspace) => (
-                  <TableRow key={workspace.id}>
+                  <TableRow
+                    key={workspace.id}
+                    className="cursor-pointer"
+                    onClick={() => handleViewWorkspace(workspace)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-2 w-2 rounded-full bg-green-500" />
@@ -679,7 +680,7 @@ export default function WorkspacesPage() {
                         {formatDate(workspace.updatedAt)}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
