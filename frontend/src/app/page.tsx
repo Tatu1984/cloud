@@ -21,7 +21,6 @@ import {
   Sparkles,
   Cloud,
   User,
-  Lock,
   UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -219,28 +218,6 @@ export default function LandingPage() {
                   Sign In as Admin
                 </Button>
               </Link>
-            </div>
-          </div>
-
-          {/* Demo Credentials Box */}
-          <div className="max-w-xl mx-auto mt-8">
-            <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Lock className="h-4 w-4 text-cyan-400" />
-                <span className="text-sm font-semibold text-cyan-400">Demo Credentials</span>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <div className="text-blue-400 font-medium mb-1">User Access</div>
-                  <div className="text-slate-400">Email: <code className="text-slate-300">user@demo.com</code></div>
-                  <div className="text-slate-400">Password: <code className="text-slate-300">demo123</code></div>
-                </div>
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <div className="text-red-400 font-medium mb-1">Admin Access</div>
-                  <div className="text-slate-400">Email: <code className="text-slate-300">admin@demo.com</code></div>
-                  <div className="text-slate-400">Password: <code className="text-slate-300">admin123</code></div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -466,8 +443,7 @@ export default function LandingPage() {
                 </h2>
 
                 <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
-                  Sign in to explore the full platform capabilities.
-                  Use the demo credentials to get started instantly.
+                  Sign in with your Microsoft account to explore the full platform capabilities.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -493,7 +469,7 @@ export default function LandingPage() {
 
                 <p className="text-sm text-slate-500 mt-6">
                   <CheckCircle className="inline h-4 w-4 text-emerald-500 mr-1" />
-                  Demo mode enabled • No account required
+                  Secured with Microsoft Entra ID
                 </p>
               </CardContent>
             </Card>

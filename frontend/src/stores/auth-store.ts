@@ -25,26 +25,7 @@ interface AuthState {
   hasPermission: (permission: string) => boolean;
 }
 
-// Mock data for demo
-const mockUser: User = {
-  id: 'user-1',
-  email: 'demo@cloudplatform.io',
-  name: 'Demo User',
-  role: 'admin',
-  organizationId: 'org-1',
-  avatar: undefined,
-  createdAt: '2024-01-01T00:00:00Z',
-};
-
-const mockOrganization: Organization = {
-  id: 'org-1',
-  name: 'Acme Corporation',
-  slug: 'acme-corp',
-  plan: 'professional',
-  createdAt: '2024-01-01T00:00:00Z',
-};
-
-const mockProjects: Project[] = [
+const defaultProjects: Project[] = [
   {
     id: 'proj-1',
     name: 'Production',
@@ -95,8 +76,8 @@ export const useAuthStore = create<AuthState>()(
         return set({
           user,
           organization,
-          currentProject: mockProjects[0],
-          projects: mockProjects,
+          currentProject: defaultProjects[0],
+          projects: defaultProjects,
           isAuthenticated: true,
           isAdmin,
           accessToken: accessToken || null,
