@@ -14,7 +14,6 @@ import {
   Trash2,
   Eye,
   Settings,
-  Monitor,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +52,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConsoleOpenButton } from "@/components/console-open-button";
 import {
   Select,
   SelectContent,
@@ -694,17 +694,10 @@ export default function WorkspacesPage() {
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              window.open(
-                                `/dashboard/infrastructure/workspaces/${workspace.id}/console`,
-                                '_blank'
-                              )
-                            }
-                          >
-                            <Monitor className="mr-2 h-4 w-4" />
-                            Console
-                          </DropdownMenuItem>
+                          <ConsoleOpenButton
+                            variant="dropdown-item"
+                            workspaceId={workspace.id}
+                          />
                           <DropdownMenuItem
                             onSelect={() => handleManageWorkspace(workspace)}
                           >

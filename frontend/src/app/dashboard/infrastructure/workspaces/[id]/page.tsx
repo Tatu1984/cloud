@@ -10,7 +10,6 @@ import {
   Unlock,
   RefreshCw,
   Loader2,
-  Monitor,
   Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConsoleOpenButton } from "@/components/console-open-button";
 import { useWorkspace } from "@/lib/mdc/hooks";
 import { VirtualMachine, VirtualNetwork } from "@/lib/mdc/types";
 
@@ -313,19 +313,11 @@ export default function WorkspaceDetailPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              window.open(
-                                `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=${vm.index}`,
-                                '_blank'
-                              )
-                            }
-                          >
-                            <Monitor className="mr-2 h-3 w-3" />
-                            Console
-                          </Button>
+                          <ConsoleOpenButton
+                            variant="button"
+                            workspaceId={workspaceId}
+                            vm={String(vm.index)}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -363,19 +355,11 @@ export default function WorkspaceDetailPage() {
                     </div>
                     <StatusBadge status={workspace!.bastion!.status} />
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      window.open(
-                        `/dashboard/infrastructure/workspaces/${workspaceId}/console?vm=bastion`,
-                        '_blank'
-                      )
-                    }
-                  >
-                    <Monitor className="mr-2 h-3 w-3" />
-                    Console
-                  </Button>
+                  <ConsoleOpenButton
+                    variant="button"
+                    workspaceId={workspaceId}
+                    vm="bastion"
+                  />
                 </div>
               ) : (
                 <div className="text-center py-6">
