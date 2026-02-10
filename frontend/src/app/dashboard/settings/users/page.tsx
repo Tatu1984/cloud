@@ -50,14 +50,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useUsers, useOrganizations } from "@/lib/mdc/hooks";
-import { User, Organization, OrganizationUserRole } from "@/lib/mdc/types";
+import { User, Organization, UserOrganizationRole } from "@/lib/mdc/types";
 
 type DisplayRole = "admin" | "member" | "viewer";
 
 interface DisplayUser {
   id: string;
   name: string;
-  roles: OrganizationUserRole[];
+  roles: UserOrganizationRole[];
   primaryRole: DisplayRole;
   organizationCount: number;
 }
@@ -98,7 +98,7 @@ function mapRole(role: string): DisplayRole {
 }
 
 // Get the highest priority role from a list of roles
-function getPrimaryRole(roles: OrganizationUserRole[]): DisplayRole {
+function getPrimaryRole(roles: UserOrganizationRole[]): DisplayRole {
   if (roles.some(r => mapRole(r.role) === "admin")) return "admin";
   if (roles.some(r => mapRole(r.role) === "member")) return "member";
   return "viewer";
@@ -121,8 +121,15 @@ export default function UsersPage() {
   const [orgFilter, setOrgFilter] = useState<string>("all");
 
   // Fetch users and organizations from MDC API
-  const { data: users, isLoading: usersLoading, isError: usersError, error: usersErrorData, refetch: refetchUsers } = useUsers();
+  const { data: users, isLoading: usersLoading, isError: usersError, error: usersErrorData, refetch: refetchUsers } = useUsers({});
   const { data: organizations, isLoading: orgsLoading, isError: orgsError, refetch: refetchOrgs } = useOrganizations();
+
+  // Org name lookup
+  const orgNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    organizations?.forEach((org) => map.set(org.id, org.name));
+    return map;
+  }, [organizations]);
 
   const isLoading = usersLoading || orgsLoading;
   const isError = usersError || orgsError;
@@ -132,10 +139,10 @@ export default function UsersPage() {
     if (!users) return [];
     return users.map((user) => ({
       id: user.id,
-      name: user.name,
-      roles: user.organizationUserRoles || [],
-      primaryRole: getPrimaryRole(user.organizationUserRoles || []),
-      organizationCount: new Set(user.organizationUserRoles?.map(r => r.organizationId) || []).size,
+      name: user.displayName,
+      roles: user.organizationRoles || [],
+      primaryRole: getPrimaryRole(user.organizationRoles || []),
+      organizationCount: new Set(user.organizationRoles?.map(r => r.organizationId) || []).size,
     }));
   }, [users]);
 
@@ -377,7 +384,7 @@ export default function UsersPage() {
                             <div className="flex flex-wrap gap-1 max-w-md">
                               {user.roles.slice(0, 3).map((role, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
-                                  {role.organizationName}: {role.role}
+                                  {orgNameMap.get(role.organizationId) || role.organizationId.slice(0, 8)}: {role.role}
                                 </Badge>
                               ))}
                               {user.roles.length > 3 && (

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Shield,
   Users,
+  UserCog,
   Building2,
   Globe,
   Activity,
@@ -282,6 +283,11 @@ const adminNavItems = [
       { title: "Onboarding", url: "/admin/tenants/onboarding" },
       { title: "Plans & Quotas", url: "/admin/tenants/plans" },
     ],
+  },
+  {
+    title: "Users",
+    url: "/admin/users",
+    icon: UserCog,
   },
   {
     title: "Infrastructure",

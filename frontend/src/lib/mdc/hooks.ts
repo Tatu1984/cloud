@@ -11,6 +11,8 @@ import {
   WorkspaceDescriptor,
   RemoteNetworkUpdate,
   OrganizationDescriptor,
+  UserRegistrationDescriptor,
+  UserUpdateDescriptor,
 } from './types';
 import { useMemo, useCallback } from 'react';
 import { getMsalInstance, mdcApiRequest } from '@/lib/msal-config';
@@ -141,13 +143,14 @@ export function useAddWorkspaceToSite() {
 // ==================== Users Hooks ====================
 
 export function useUsers(
+  { includeUnregistered }: { includeUnregistered?: boolean } = {},
   options?: Omit<UseQueryOptions<User[], MDCError>, 'queryKey' | 'queryFn'>
 ) {
   const client = useMDCClient();
 
   return useQuery({
-    queryKey: mdcQueryKeys.users(),
-    queryFn: () => client.getUsers(),
+    queryKey: [...mdcQueryKeys.users(), { includeUnregistered }],
+    queryFn: () => client.getUsers(includeUnregistered),
     staleTime: 5 * 60 * 1000,
     ...options,
   });
@@ -165,6 +168,45 @@ export function useUser(
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     ...options,
+  });
+}
+
+export function useRegisterUser() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (descriptor: UserRegistrationDescriptor) =>
+      client.registerUser(descriptor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.users() });
+    },
+  });
+}
+
+export function useUpdateUser() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, descriptor }: { id: string; descriptor: UserUpdateDescriptor }) =>
+      client.updateUser(id, descriptor),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.users() });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.user(id) });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => client.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.users() });
+    },
   });
 }
 

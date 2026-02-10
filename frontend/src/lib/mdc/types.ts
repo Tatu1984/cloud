@@ -50,8 +50,15 @@ export interface SiteNodeCPUInfo {
 
 export interface User {
   id: string; // UUID
-  name: string;
-  organizationUserRoles?: OrganizationUserRole[];
+  displayName: string;
+  isRegistered: boolean;
+  appRoles: string[];
+  organizationRoles: UserOrganizationRole[];
+}
+
+export interface UserOrganizationRole {
+  organizationId: string;
+  role: string;
 }
 
 export interface Workspace {
@@ -312,12 +319,16 @@ export interface RemoteNetworkMemberUpdate {
 // ==================== User Registration Types ====================
 
 export interface UserRegistrationDescriptor {
-  objectId: string; // Azure AD Object ID
-  organizationRoles?: OrganizationUserRoleDescriptor[];
+  id: string; // Azure AD Object ID
+  organizationRoles?: UserOrganizationRole[];
+  applicationRoles?: string[];
 }
 
 export interface UserUpdateDescriptor {
-  organizationRoles?: OrganizationUserRoleDescriptor[];
+  addOrganizationRoles?: UserOrganizationRole[];
+  removeOrganizationRoles?: UserOrganizationRole[];
+  addApplicationRoles?: string[];
+  removeApplicationRoles?: string[];
 }
 
 // ==================== Workspace Lock Types ====================

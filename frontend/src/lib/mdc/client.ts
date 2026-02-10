@@ -15,6 +15,8 @@ import {
   DownloadTemplateDescriptor,
   OrganizationDescriptor,
   RemoteNetworkUpdate,
+  UserRegistrationDescriptor,
+  UserUpdateDescriptor,
 } from './types';
 
 // MDC API URL - proxy through Next.js API route to handle self-signed cert + CORS
@@ -177,13 +179,34 @@ export class MDCClient {
 
   // ==================== Users ====================
 
-  async getUsers(): Promise<User[]> {
-    const response = await this.request<ODataResponse<User>>('/odata/Users');
+  async getUsers(includeUnregistered?: boolean): Promise<User[]> {
+    const query = includeUnregistered ? '?getUnregisteredUsers=true' : '';
+    const response = await this.request<ODataResponse<User>>(`/odata/Users${query}`);
     return response.value;
   }
 
   async getUser(id: string): Promise<User> {
     return this.request<User>(`/odata/Users(${id})`);
+  }
+
+  async registerUser(descriptor: UserRegistrationDescriptor): Promise<User> {
+    return this.request<User>('/odata/Users', {
+      method: 'POST',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async updateUser(id: string, descriptor: UserUpdateDescriptor): Promise<void> {
+    await this.request(`/odata/Users(${id})`, {
+      method: 'PATCH',
+      body: JSON.stringify(descriptor),
+    });
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.request(`/odata/Users(${id})`, {
+      method: 'DELETE',
+    });
   }
 
   // ==================== Workspaces ====================
