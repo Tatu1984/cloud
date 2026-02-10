@@ -56,7 +56,12 @@ function getWsUrl(
 }
 
 async function getAuthParam(): Promise<string> {
-  // Try JWT token from MSAL first
+  // Use API key when available (known to work with MDC API)
+  if (DEV_API_KEY) {
+    return `apikey=${encodeURIComponent(DEV_API_KEY)}`;
+  }
+
+  // Otherwise try MSAL Bearer token
   const msalInstance = getMsalInstance();
   if (msalInstance) {
     try {
@@ -72,13 +77,8 @@ async function getAuthParam(): Promise<string> {
         }
       }
     } catch {
-      // Fall through to API key
+      // No auth available
     }
-  }
-
-  // Fallback to dev API key
-  if (DEV_API_KEY) {
-    return `apikey=${encodeURIComponent(DEV_API_KEY)}`;
   }
 
   return "";
