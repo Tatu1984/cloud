@@ -73,6 +73,20 @@ async function getAuthParam(): Promise<string> {
           account: accounts[0],
         });
         if (response.accessToken) {
+          // Verify the token has the correct audience (not Graph API)
+          // Graph tokens (aud 00000003-...) won't work with MDC WebSocket
+          try {
+            const payload = JSON.parse(atob(response.accessToken.split(".")[1]));
+            if (payload.aud === "00000003-0000-0000-c000-000000000000") {
+              console.warn(
+                "MSAL returned a Graph token instead of MDC API token. " +
+                "Check NEXT_PUBLIC_MDC_SCOPE and app registration API permissions."
+              );
+              return "";
+            }
+          } catch {
+            // If we can't decode, try using it anyway
+          }
           return `token=${encodeURIComponent(response.accessToken)}`;
         }
       }
