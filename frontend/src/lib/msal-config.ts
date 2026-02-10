@@ -51,10 +51,15 @@ export const msalConfig: Configuration = {
   },
 };
 
-// Scopes for authentication - CIAM uses simpler scopes
+// Scopes for sign-in
 export const loginRequest = {
   scopes: ['openid', 'profile', 'email'],
-  prompt: 'select_account' as const, // Always show account picker
+  prompt: 'select_account' as const,
+};
+
+// Scopes for MDC API access - acquires a token with the correct audience
+export const mdcApiRequest = {
+  scopes: [process.env.NEXT_PUBLIC_MDC_SCOPE || 'api://617db85e-dc5c-42a4-be72-5a20d2f7ccff/MDC.Access'],
 };
 
 // Create MSAL instance

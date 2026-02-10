@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/lib/mdc/hooks";
-import { getMsalInstance, loginRequest } from "@/lib/msal-config";
+import { getMsalInstance, mdcApiRequest } from "@/lib/msal-config";
 
 const MDC_API_URL =
   process.env.NEXT_PUBLIC_MDC_API_URL || "https://www.microdatacluster.com";
@@ -64,7 +64,7 @@ async function getAuthParam(): Promise<string> {
       const accounts = msalInstance.getAllAccounts();
       if (accounts.length > 0) {
         const response = await msalInstance.acquireTokenSilent({
-          ...loginRequest,
+          ...mdcApiRequest,
           account: accounts[0],
         });
         if (response.accessToken) {

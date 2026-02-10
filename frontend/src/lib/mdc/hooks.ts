@@ -13,7 +13,7 @@ import {
   OrganizationDescriptor,
 } from './types';
 import { useMemo, useCallback } from 'react';
-import { getMsalInstance, loginRequest } from '@/lib/msal-config';
+import { getMsalInstance, mdcApiRequest } from '@/lib/msal-config';
 
 // Query keys for cache management
 export const mdcQueryKeys = {
@@ -44,7 +44,7 @@ async function getAccessToken(): Promise<string | null> {
     if (accounts.length === 0) return null;
 
     const response = await msalInstance.acquireTokenSilent({
-      ...loginRequest,
+      ...mdcApiRequest,
       account: accounts[0],
     });
 
