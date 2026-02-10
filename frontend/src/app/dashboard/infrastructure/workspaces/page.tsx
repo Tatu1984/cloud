@@ -696,8 +696,9 @@ export default function WorkspacesPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() =>
-                              router.push(
-                                `/dashboard/infrastructure/workspaces/${workspace.id}/console`
+                              window.open(
+                                `/dashboard/infrastructure/workspaces/${workspace.id}/console`,
+                                '_blank'
                               )
                             }
                           >
