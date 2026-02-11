@@ -15,15 +15,14 @@ export default function AuthCallbackPage() {
     // This page just waits and redirects based on auth state
     const checkAuth = () => {
       if (isAuthenticated) {
-        // Always redirect to dashboard
-        router.push('/dashboard');
+        // Always redirect to admin in the admin app
+        router.push('/admin');
       } else {
         // Not authenticated yet - wait a bit for MSAL to process
-        // If still not authenticated after delay, redirect to login
         setTimeout(() => {
           const store = useAuthStore.getState();
           if (!store.isAuthenticated) {
-            router.push('/auth/login');
+            router.push('/auth/admin/login');
           }
         }, 2000);
       }

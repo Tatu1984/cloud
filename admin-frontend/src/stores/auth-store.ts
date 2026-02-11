@@ -69,8 +69,10 @@ export const useAuthStore = create<AuthState>()(
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       login: (user, organization, accessToken) => {
+        // Admin app: always set role to admin
+        const adminUser = { ...user, role: 'admin' as const };
         return set({
-          user,
+          user: adminUser,
           organization,
           currentProject: defaultProjects[0],
           projects: defaultProjects,
@@ -89,22 +91,13 @@ export const useAuthStore = create<AuthState>()(
         accessToken: null,
       }),
 
-      hasPermission: (permission: string) => {
-        const { permissions } = get();
-
-        return permissions.some(p => {
-          if (p === permission) return true;
-          // Check for wildcard permissions
-          if (p.endsWith(':*')) {
-            const resource = p.slice(0, -2);
-            return permission.startsWith(resource + ':');
-          }
-          return false;
-        });
+      hasPermission: () => {
+        // Admin app: all permissions granted
+        return true;
       },
     }),
     {
-      name: 'auth-storage',
+      name: 'admin-auth-storage',
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

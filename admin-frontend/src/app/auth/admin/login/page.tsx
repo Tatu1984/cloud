@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, ArrowLeft, Loader2 } from 'lucide-react';
+import { Shield, Loader2, ExternalLink } from 'lucide-react';
 import { useMicrosoftAuth } from '@/hooks/use-microsoft-auth';
 
 // Microsoft icon component
@@ -21,8 +20,10 @@ const MicrosoftIcon = () => (
 export default function AdminLoginPage() {
   const [error, setError] = useState('');
 
+  const clientAppUrl = process.env.NEXT_PUBLIC_CLIENT_APP_URL || 'http://localhost:3000';
+
   const {
-    signInAsAdmin,
+    signInWithMicrosoft,
     isLoading: microsoftLoading,
     error: microsoftError,
     isConfigured: isMicrosoftConfigured,
@@ -38,7 +39,7 @@ export default function AdminLoginPage() {
   const handleMicrosoftLogin = async () => {
     setError('');
     clearMicrosoftError();
-    await signInAsAdmin();
+    await signInWithMicrosoft();
   };
 
   return (
@@ -86,14 +87,14 @@ export default function AdminLoginPage() {
       <CardFooter className="flex flex-col gap-4">
         <div className="text-center text-sm text-slate-400">
           Not an admin?{' '}
-          <Link href="/auth/login" className="text-blue-400 hover:text-blue-300">
-            User Login
-          </Link>
+          <a
+            href={clientAppUrl}
+            className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1"
+          >
+            Go to Client App
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
-        <Link href="/" className="flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Link>
       </CardFooter>
     </Card>
   );

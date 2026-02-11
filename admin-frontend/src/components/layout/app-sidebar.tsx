@@ -4,17 +4,17 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Server,
-  Settings,
-  LayoutDashboard,
-  Network,
-  HardDrive,
-  Database,
-  BarChart3,
-  CreditCard,
-  Cloud,
-  ChevronDown,
+  Shield,
+  Users,
+  UserCog,
+  Building2,
+  Globe,
+  Activity,
   Boxes,
+  Wallet,
+  LayoutDashboard,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
 
 import {
@@ -46,126 +46,99 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth-store";
 
-const tenantNavItems = [
+const adminNavItems = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
+    title: "Overview",
+    url: "/admin",
     icon: LayoutDashboard,
   },
   {
+    title: "Tenants",
+    icon: Users,
+    items: [
+      { title: "All Tenants", url: "/admin/tenants" },
+      { title: "Onboarding", url: "/admin/tenants/onboarding" },
+      { title: "Plans & Quotas", url: "/admin/tenants/plans" },
+    ],
+  },
+  {
+    title: "Users",
+    url: "/admin/users",
+    icon: UserCog,
+  },
+  {
     title: "Infrastructure",
-    icon: Boxes,
+    icon: Building2,
     items: [
-      { title: "Workspaces", url: "/dashboard/infrastructure/workspaces" },
-      { title: "Sites", url: "/dashboard/infrastructure/sites" },
-      { title: "Remote Networks", url: "/dashboard/infrastructure/remote-networks" },
+      { title: "Datacenters", url: "/admin/infrastructure/datacenters" },
+      { title: "Proxmox Clusters", url: "/admin/infrastructure/clusters" },
+      { title: "Nodes", url: "/admin/infrastructure/nodes" },
     ],
   },
   {
-    title: "Compute",
-    icon: Server,
+    title: "Network Fabric",
+    icon: Globe,
     items: [
-      { title: "Virtual Machines", url: "/dashboard/compute/vms" },
-      { title: "Templates", url: "/dashboard/compute/templates" },
-      { title: "Snapshots", url: "/dashboard/compute/snapshots" },
-    ],
-  },
-  {
-    title: "Networking",
-    icon: Network,
-    items: [
-      { title: "VPCs", url: "/dashboard/networking/vpcs" },
-      { title: "Subnets", url: "/dashboard/networking/subnets" },
-      { title: "Security Groups", url: "/dashboard/networking/security-groups" },
-      { title: "Public IPs", url: "/dashboard/networking/public-ips" },
-      { title: "Load Balancers", url: "/dashboard/networking/load-balancers" },
-      { title: "DNS", url: "/dashboard/networking/dns" },
+      { title: "Topology", url: "/admin/network/topology" },
+      { title: "ZeroTier Networks", url: "/admin/network/zerotier" },
+      { title: "Traffic Control", url: "/admin/network/traffic" },
     ],
   },
   {
     title: "Storage",
-    icon: HardDrive,
+    icon: Boxes,
     items: [
-      { title: "Volumes", url: "/dashboard/storage/volumes" },
-      { title: "Buckets", url: "/dashboard/storage/buckets" },
-      { title: "File Shares", url: "/dashboard/storage/file-shares" },
-      { title: "Backups", url: "/dashboard/storage/backups" },
+      { title: "Ceph Clusters", url: "/admin/storage/ceph" },
+      { title: "Storage Pools", url: "/admin/storage/pools" },
+      { title: "Replication", url: "/admin/storage/replication" },
     ],
   },
   {
-    title: "Databases",
-    icon: Database,
+    title: "Security",
+    icon: Shield,
     items: [
-      { title: "PostgreSQL", url: "/dashboard/databases/postgresql" },
-      { title: "MySQL", url: "/dashboard/databases/mysql" },
-      { title: "Backups", url: "/dashboard/databases/backups" },
+      { title: "IAM Policies", url: "/admin/security/iam" },
+      { title: "Certificates", url: "/admin/security/certificates" },
+      { title: "Audit Logs", url: "/admin/security/audit" },
     ],
   },
   {
-    title: "Observability",
-    icon: BarChart3,
+    title: "Operations",
+    icon: Activity,
     items: [
-      { title: "Metrics", url: "/dashboard/observability/metrics" },
-      { title: "Logs", url: "/dashboard/observability/logs" },
-      { title: "Alerts", url: "/dashboard/observability/alerts" },
+      { title: "Control Plane", url: "/admin/operations/control-plane" },
+      { title: "Service Health", url: "/admin/operations/health" },
+      { title: "Maintenance", url: "/admin/operations/maintenance" },
     ],
   },
   {
-    title: "Billing",
-    icon: CreditCard,
+    title: "Financials",
+    icon: Wallet,
     items: [
-      { title: "Usage", url: "/dashboard/billing/usage" },
-      { title: "Invoices", url: "/dashboard/billing/invoices" },
-      { title: "Payment", url: "/dashboard/billing/payment" },
-    ],
-  },
-  {
-    title: "Settings",
-    icon: Settings,
-    items: [
-      { title: "Organization", url: "/dashboard/settings/organization" },
-      { title: "Users & Teams", url: "/dashboard/settings/users" },
-      { title: "API Keys", url: "/dashboard/settings/api-keys" },
-      { title: "Audit Log", url: "/dashboard/settings/audit-log" },
+      { title: "Revenue", url: "/admin/financials/revenue" },
+      { title: "Usage Analytics", url: "/admin/financials/usage" },
+      { title: "Pricing", url: "/admin/financials/pricing" },
     ],
   },
 ];
 
-export function TenantSidebar() {
+export function AdminSidebar() {
   const pathname = usePathname();
-  const { user, organization, currentProject, projects, setCurrentProject, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
+
+  const clientAppUrl = process.env.NEXT_PUBLIC_CLIENT_APP_URL || 'http://localhost:3000';
 
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Cloud className="h-5 w-5" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground">
+            <Shield className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Cloud Platform</span>
-            <span className="text-xs text-muted-foreground">{organization?.name}</span>
+            <span className="text-sm font-semibold">Admin Console</span>
+            <span className="text-xs text-muted-foreground">Cloud Operator</span>
           </div>
-        </div>
-        <div className="px-2 pb-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
-                <span>{currentProject?.name || "Select project"}</span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[200px]" align="start">
-              {projects.map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onSelect={() => setCurrentProject(project)}
-                >
-                  {project.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </SidebarHeader>
 
@@ -173,7 +146,7 @@ export function TenantSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {tenantNavItems.map((item) => {
+              {adminNavItems.map((item) => {
                 if (!item.items) {
                   return (
                     <SidebarMenuItem key={item.title}>
@@ -234,19 +207,22 @@ export function TenantSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton className="w-full">
                   <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-xs">
-                      {user?.name?.charAt(0) || "U"}
+                    <AvatarFallback className="text-xs bg-destructive text-destructive-foreground">
+                      {user?.name?.charAt(0) || "A"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col items-start text-xs">
                     <span className="font-medium">{user?.name}</span>
-                    <span className="text-muted-foreground">{user?.email}</span>
+                    <span className="text-muted-foreground">Super Admin</span>
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[200px]">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings/profile">Profile</Link>
+                  <a href={clientAppUrl} target="_blank" rel="noopener noreferrer">
+                    Client App
+                    <ExternalLink className="ml-auto h-3 w-3" />
+                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => logout()}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>

@@ -24,21 +24,21 @@ export function useMicrosoftAuth() {
     isInitialized: false,
   });
 
-  // Process account info from Microsoft and create user session
+  // Process account info from Microsoft and create admin session
   const processAccountInfo = useCallback((account: AccountInfo, idToken?: string) => {
     // Extract user info from the Microsoft account
     const user = {
       id: account.localAccountId || account.homeAccountId,
       email: account.username,
       name: account.name || account.username,
-      role: 'user' as const,
+      role: 'admin' as const,
       organizationId: 'org-' + account.tenantId,
       entraIdOid: account.localAccountId,
       authProvider: 'entra_id' as const,
       createdAt: new Date().toISOString(),
     };
 
-    // Create a mock organization for now (can be updated when backend is ready)
+    // Create a mock organization for now
     const organization = {
       id: 'org-' + account.tenantId,
       name: account.name ? `${account.name}'s Organization` : 'My Organization',
@@ -55,8 +55,8 @@ export function useMicrosoftAuth() {
     // Update auth store
     login(user, organization);
 
-    // Always redirect to dashboard
-    router.push('/dashboard');
+    // Always redirect to admin
+    router.push('/admin');
 
     return { user, organization };
   }, [login, router]);
@@ -76,10 +76,9 @@ export function useMicrosoftAuth() {
       try {
         await msalInstance.initialize();
 
-        // Handle any pending redirect - this clears stale interaction state
+        // Handle any pending redirect
         const response = await msalInstance.handleRedirectPromise();
 
-        // If we got a response from redirect, process it
         if (response?.account) {
           processAccountInfo(response.account, response.idToken);
         }
@@ -103,8 +102,7 @@ export function useMicrosoftAuth() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signInWithMicrosoft = useCallback(async (options: { isSignUp?: boolean } = {}) => {
-    const { isSignUp = false } = options;
+  const signInWithMicrosoft = useCallback(async () => {
     const msalInstance = getMsalInstance();
 
     if (!msalInstance) {
@@ -112,7 +110,6 @@ export function useMicrosoftAuth() {
       return;
     }
 
-    // Check if MSAL is initialized
     if (!state.isInitialized) {
       setState(prev => ({ ...prev, error: 'Authentication is initializing. Please try again.' }));
       return;
@@ -121,13 +118,7 @@ export function useMicrosoftAuth() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // For sign-up, use prompt: 'create' to show the sign-up experience
-      const request = isSignUp
-        ? { ...loginRequest, prompt: 'create' as const }
-        : loginRequest;
-
-      // Try popup login
-      const response = await msalInstance.loginPopup(request);
+      const response = await msalInstance.loginPopup(loginRequest);
 
       if (response.account) {
         processAccountInfo(response.account, response.idToken);
@@ -135,17 +126,14 @@ export function useMicrosoftAuth() {
     } catch (error: unknown) {
       console.error('Microsoft login error:', error);
 
-      // Handle specific MSAL errors
       let errorMessage = 'Failed to sign in with Microsoft';
 
       if (error instanceof Error) {
         if (error.message.includes('interaction_in_progress')) {
           errorMessage = 'Please close any open login windows and try again.';
-          // Try to clear the interaction state
           try {
             const accounts = msalInstance.getAllAccounts();
             if (accounts.length === 0) {
-              // Clear browser storage to reset MSAL state
               sessionStorage.clear();
             }
           } catch {
@@ -166,13 +154,8 @@ export function useMicrosoftAuth() {
     }
   }, [state.isInitialized, processAccountInfo]);
 
-  // Convenience methods
-  const signInAsUser = useCallback(() => signInWithMicrosoft(), [signInWithMicrosoft]);
-  const signUpWithMicrosoft = useCallback(() => signInWithMicrosoft({ isSignUp: true }), [signInWithMicrosoft]);
-
   return {
-    signInWithMicrosoft: signInAsUser,
-    signUpWithMicrosoft,
+    signInWithMicrosoft,
     isLoading: state.isLoading,
     error: state.error,
     isConfigured: state.isConfigured,

@@ -108,12 +108,6 @@ export default function UserLoginPage() {
       </CardContent>
 
       <CardFooter className="flex flex-col gap-4">
-        <div className="text-center text-sm text-slate-400">
-          Need admin access?{' '}
-          <Link href="/auth/admin/login" className="text-red-400 hover:text-red-300">
-            Admin Login
-          </Link>
-        </div>
         <Link href="/" className="flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
           <ArrowLeft className="h-4 w-4" />
           Back to Home

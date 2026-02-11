@@ -17,11 +17,11 @@ import {
   Cpu,
   HardDrive,
   Activity,
-  Play,
   Sparkles,
   Cloud,
   User,
   UserPlus,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,8 @@ export default function LandingPage() {
   const [isVisible, setIsVisible] = useState(false)
   const [activeFeature, setActiveFeature] = useState(0)
   const { signUpWithMicrosoft, isLoading, error, isConfigured, clearError } = useMicrosoftAuth()
+
+  const adminAppUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL || 'http://localhost:3001';
 
   useEffect(() => {
     setIsVisible(true)
@@ -129,14 +131,14 @@ export default function LandingPage() {
                 User Login
               </Button>
             </Link>
-            <Link href="/auth/admin/login">
+            <a href={adminAppUrl}>
               <Button
                 className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 shadow-lg shadow-red-500/25"
               >
                 <Shield className="mr-2 h-4 w-4" />
                 Admin
               </Button>
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -170,7 +172,7 @@ export default function LandingPage() {
             and networking. <span className="text-slate-300">Deploy in seconds, scale without limits.</span>
           </p>
 
-          {/* CTA Buttons - Sign Up & Sign In Options */}
+          {/* CTA Buttons - Sign Up & Sign In */}
           <div className="flex flex-col gap-4 pt-6">
             {/* Primary Sign Up Button */}
             {isConfigured && (
@@ -208,7 +210,7 @@ export default function LandingPage() {
                   Sign In as User
                 </Button>
               </Link>
-              <Link href="/auth/admin/login">
+              <a href={adminAppUrl}>
                 <Button
                   size="lg"
                   variant="outline"
@@ -217,7 +219,7 @@ export default function LandingPage() {
                   <Shield className="mr-2 h-5 w-5" />
                   Sign In as Admin
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
 
@@ -456,7 +458,7 @@ export default function LandingPage() {
                       User Dashboard
                     </Button>
                   </Link>
-                  <Link href="/auth/admin/login">
+                  <a href={adminAppUrl}>
                     <Button
                       size="lg"
                       className="text-lg px-10 h-14 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 shadow-xl shadow-red-500/30 transition-all hover:shadow-red-500/40 hover:scale-105"
@@ -464,7 +466,7 @@ export default function LandingPage() {
                       <Shield className="mr-2 h-5 w-5" />
                       Admin Console
                     </Button>
-                  </Link>
+                  </a>
                 </div>
 
                 <p className="text-sm text-slate-500 mt-6">
@@ -492,6 +494,13 @@ export default function LandingPage() {
             </div>
 
             <div className="flex items-center gap-6 text-sm text-slate-400">
+              <a
+                href={adminAppUrl}
+                className="hover:text-slate-300 transition-colors inline-flex items-center gap-1"
+              >
+                Administrator?
+                <ExternalLink className="h-3 w-3" />
+              </a>
               <span>© 2024 Cloud Platform</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Powered by Next.js & Go</span>
