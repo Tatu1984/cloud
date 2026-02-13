@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Proxmox Console</title>
+
+    <!-- Load noVNC -->
+    <script src="https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/app/ui.js"></script>
+
+
+    <style>
+        #screen {
+            width: 100%;
+            height: 90vh;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h3>VM Console</h3>
+
+    <div id="screen"></div>
+
+    <script>
+
+    // PARAMETERS – you would normally set these dynamically
+    const workspace = "019bd856-a20c-7f73-843a-de3c8136f6f1";
+    
+    // Your ASP.NET websocket endpoint
+    const wsUrl =
+        `wss://localhost:7078/odata/Workspaces(${workspace})/Console`;
+
+    // Create RFB (VNC) client
+    const rfb = new RFB(
+        document.getElementById('screen'),
+        wsUrl
+    );
+
+    rfb.scaleViewport = true;
+    rfb.resizeSession = true;
+
+    rfb.addEventListener("connect", () => {
+        console.log("Connected to VNC console");
+    });
+
+    rfb.addEventListener("disconnect", (e) => {
+        console.log("Disconnected", e);
+    });
+
+    rfb.addEventListener("credentialsrequired", () => {
+        console.log("Credentials required (not expected with Proxmox tickets)");
+    });
+
+    </script>
+
+</body>
+</html>

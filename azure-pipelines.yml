@@ -13,7 +13,7 @@ variables:
   dockerRegistryServiceConnection: '67e2ff83-f116-43e6-83a1-fcf924ea5ef8'
   imageRepository: 'mdcwebdashboardpreview'
   containerRegistry: 'microdatacenterdevelopment.azurecr.io'
-  dockerfilePath: '$(Build.SourcesDirectory)/frontend/Dockerfile'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
   tag: '$(Build.BuildId)'
 
   # Agent VM image name
@@ -35,7 +35,7 @@ stages:
           -t $(containerRegistry)/$(imageRepository):$(tag) \
           -t $(containerRegistry)/$(imageRepository):latest \
           -f $(dockerfilePath) \
-          $(Build.SourcesDirectory)/frontend
+          $(Build.SourcesDirectory)
       displayName: Build Docker image
 
     # Login to ACR

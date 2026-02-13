@@ -1,0 +1,77 @@
+version: '3.8'
+
+# =============================================================================
+# MicroDataCenter WebAPI - Docker Compose
+# =============================================================================
+# This runs the .NET backend API with PostgreSQL database
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # MDC WebAPI Backend
+  # ===========================================================================
+  mdc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mdc-api
+    restart: unless-stopped
+    ports:
+      - "${API_HTTP_PORT:-5000}:8080"
+      - "${API_HTTPS_PORT:-5001}:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - ConnectionStrings__DefaultConnection=Host=mdc-postgres;Port=5432;Database=${POSTGRES_DB:-mdcdb};Username=${POSTGRES_USER:-mdc};Password=${POSTGRES_PASSWORD}
+      - API_RUN_DB_MIGRATIONS=true
+      - AzureAd__ClientSecret=${AZURE_AD_CLIENT_SECRET:-}
+      - CORS__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      mdc-postgres:
+        condition: service_healthy
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  mdc-postgres:
+    image: postgres:16-alpine
+    container_name: mdc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mdc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-mdcdb}
+    volumes:
+      - mdc_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mdc} -d ${POSTGRES_DB:-mdcdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  mdc-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mdc_postgres_data:
+    driver: local

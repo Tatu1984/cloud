@@ -1,0 +1,243 @@
+version: '3.8'
+
+# =============================================================================
+# MDC Platform - Integrated Docker Compose
+# =============================================================================
+# This runs the complete MDC platform:
+# - MDC WebAPI Backend (.NET)
+# - MDC Frontend (Next.js)
+# - ZT Bridge services (nginx, guacamole, zero-ui, zerotier)
+# - PostgreSQL databases
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # MDC WebAPI Backend (.NET 9.0)
+  # ===========================================================================
+  mdc-api:
+    build:
+      context: ./mdc-backend
+      dockerfile: Dockerfile
+    container_name: mdc-api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - ConnectionStrings__DefaultConnection=Host=mdc-postgres;Port=5432;Database=mdcdb;Username=mdc;Password=${MDC_POSTGRES_PASSWORD:-mdcpassword}
+      - API_RUN_DB_MIGRATIONS=true
+      - AzureAd__ClientSecret=${AZURE_AD_CLIENT_SECRET:-}
+      - CORS__AllowedOrigins=http://localhost:3000,http://frontend:3000
+    depends_on:
+      mdc-postgres:
+        condition: service_healthy
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # MDC Frontend (Next.js)
+  # ===========================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5000
+        - NEXT_PUBLIC_MDC_API_URL=http://localhost:5000/odata
+        - NEXT_PUBLIC_BRIDGE_API_URL=http://localhost:80/api/v1/bridge
+    container_name: mdc-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - mdc-api
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # MDC PostgreSQL Database
+  # ===========================================================================
+  mdc-postgres:
+    image: postgres:16-alpine
+    container_name: mdc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mdc
+      POSTGRES_PASSWORD: ${MDC_POSTGRES_PASSWORD:-mdcpassword}
+      POSTGRES_DB: mdcdb
+    volumes:
+      - mdc_postgres_data:/var/lib/postgresql/data
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mdc -d mdcdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # ZT Bridge PostgreSQL (for Guacamole & Zero-UI)
+  # ===========================================================================
+  zt-postgres:
+    image: postgres:16-alpine
+    container_name: zt-bridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ztbridge
+      POSTGRES_PASSWORD: ${ZT_POSTGRES_PASSWORD:-ztbridgepassword}
+      POSTGRES_DB: ztbridge
+    volumes:
+      - zt_postgres_data:/var/lib/postgresql/data
+      - ./zt-bridge/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - mdc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ztbridge -d ztbridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # ZeroTier Client
+  # ===========================================================================
+  zerotier:
+    image: zerotier/zerotier:latest
+    container_name: zt-bridge-zerotier
+    restart: unless-stopped
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    volumes:
+      - zerotier_data:/var/lib/zerotier-one
+      - ./zt-bridge/zerotier/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      ZEROTIER_NETWORK_IDS: ${ZEROTIER_NETWORK_IDS:-}
+    entrypoint: /entrypoint.sh
+
+  # ===========================================================================
+  # Zero-UI (ZeroTier Management)
+  # ===========================================================================
+  zero-ui:
+    image: dec0dos/zero-ui:latest
+    container_name: zt-bridge-zero-ui
+    restart: unless-stopped
+    depends_on:
+      zt-postgres:
+        condition: service_healthy
+    environment:
+      ZU_CONTROLLER_ENDPOINT: http://localhost:9993
+      ZU_SECURE_HEADERS: "true"
+      ZU_DEFAULT_USERNAME: ${ZERO_UI_USERNAME:-admin}
+      ZU_DEFAULT_PASSWORD: ${ZERO_UI_PASSWORD:-zeroupassword}
+      ZU_CONTROLLER_DATABASE: postgres
+      ZU_POSTGRES_HOST: zt-postgres
+      ZU_POSTGRES_PORT: 5432
+      ZU_POSTGRES_USER: ztbridge
+      ZU_POSTGRES_PASSWORD: ${ZT_POSTGRES_PASSWORD:-ztbridgepassword}
+      ZU_POSTGRES_DB: zero_ui
+    volumes:
+      - zero_ui_data:/app/backend/data
+    networks:
+      - mdc-network
+    ports:
+      - "4000:4000"
+
+  # ===========================================================================
+  # Guacamole Daemon
+  # ===========================================================================
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: zt-bridge-guacd
+    restart: unless-stopped
+    networks:
+      - mdc-network
+    volumes:
+      - guacd_drive:/drive:rw
+      - guacd_record:/record:rw
+
+  # ===========================================================================
+  # Guacamole Web App
+  # ===========================================================================
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: zt-bridge-guacamole
+    restart: unless-stopped
+    depends_on:
+      zt-postgres:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+    environment:
+      GUACD_HOSTNAME: guacd
+      GUACD_PORT: 4822
+      POSTGRES_HOSTNAME: zt-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: guacamole
+      POSTGRES_USER: ztbridge
+      POSTGRES_PASSWORD: ${ZT_POSTGRES_PASSWORD:-ztbridgepassword}
+    networks:
+      - mdc-network
+
+  # ===========================================================================
+  # Nginx Reverse Proxy
+  # ===========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: zt-bridge-nginx
+    restart: unless-stopped
+    depends_on:
+      - guacamole
+      - zero-ui
+      - mdc-api
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./zt-bridge/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./zt-bridge/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./zt-bridge/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - mdc-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  mdc-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mdc_postgres_data:
+  zt_postgres_data:
+  zerotier_data:
+  zero_ui_data:
+  guacd_drive:
+  guacd_record:
