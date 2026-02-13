@@ -29,14 +29,9 @@ docker-compose.yml
 .docker
 .dockerignore
 
-# Non-frontend directories
-mdc-backend
-zt-bridge
-
 # Misc
 README.md
 *.md
-*.docx
 coverage
 .DS_Store
 Thumbs.db
