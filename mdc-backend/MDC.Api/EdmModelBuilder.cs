@@ -51,13 +51,13 @@ namespace MDC.Api
             builder.EntitySet<User>("Users").EntityType
                 .HasKey(i => i.Id);
 
+            builder.EntitySet<AppRole>("AppRoles").EntityType
+                .HasKey(i => i.Value);
+
             builder.EntitySet<RemoteNetwork>("RemoteNetworks").EntityType
                 .HasKey(i => i.Id);
             builder.EntitySet<RemoteNetwork>("RemoteNetworks").EntityType
                 .CollectionProperty<RemoteNetworkMember>(i => i.Members);
-
-
-
 
 
 

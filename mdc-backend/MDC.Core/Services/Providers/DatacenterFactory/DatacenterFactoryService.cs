@@ -461,6 +461,7 @@ internal class DatacenterFactoryService(IMDCDatabaseService databaseService, IMD
              {
                  Id = dbOrganization.Id,
                  Name = dbOrganization.Name,
+                 Description = dbOrganization.Description,
                  Active = dbOrganization.Active,
                  SiteIds = dbOrganization.Sites.Select(dbSite => dbSite.Id).ToArray(),
                  WorkspaceIds = dbOrganization.Workspaces.Select(dbWorkspace => dbWorkspace.Id).ToArray(),

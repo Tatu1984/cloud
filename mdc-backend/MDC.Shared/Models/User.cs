@@ -12,6 +12,9 @@ public class User
     public required string DisplayName { get; set; }
 
     /// <summary />
+    public required string? EmailAddress { get; set; }
+
+    /// <summary />
     public required bool IsRegistered { get; set; }
 
     /// <summary />

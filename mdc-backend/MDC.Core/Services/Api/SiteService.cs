@@ -54,9 +54,9 @@ internal class SiteService(IDatacenterFactoryService datacenterFactoryService, I
         }
         
         // Ensure organizations are set for the site
-        var dbOrganizationDefault = await databaseService.GetDefaultOrganizationAsync(dbSite, cancellationToken);
-        var organizationIds = siteDescriptor.OrganizationIds ?? [dbOrganizationDefault.Id];
-        dbSite = await databaseService.UpdateSiteAsync(dbSite.Id, null, null, null, organizationIds, cancellationToken);
+        //var dbOrganizationDefault = await databaseService.GetDefaultOrganizationAsync(dbSite, cancellationToken);
+        // var organizationIds = siteDescriptor.OrganizationIds ?? [dbOrganizationDefault.Id];
+        dbSite = await databaseService.UpdateSiteAsync(dbSite.Id, null, null, null, siteDescriptor.OrganizationIds, cancellationToken);
 
         // Verify that the Site credentials still work and create new Registration if it does not
         var mdcEndpoint = await mdcEndpointService.GetMicroDataCenterEndpointAsync(dbSiteNode, cancellationToken);
@@ -80,10 +80,10 @@ internal class SiteService(IDatacenterFactoryService datacenterFactoryService, I
         {
             await datacenterFactoryService.ImportSiteAsync(dbSiteNode, siteDescriptor.ImportToOrganizationId.Value, cancellationToken);
         }
-        else
-        {
-            await datacenterFactoryService.ImportSiteAsync(dbSiteNode, dbOrganizationDefault.Id, cancellationToken);
-        }
+        //else
+        //{
+        //    await datacenterFactoryService.ImportSiteAsync(dbSiteNode, siteDescriptor.OrganizationIds.First(), cancellationToken);
+        //}
 
         return (await datacenterFactoryService.ComputeSitesAsync([dbSite], true, cancellationToken)).FirstOrDefault() ?? throw new InvalidOperationException($"Site '{siteName}' not found.");
     }

@@ -20,5 +20,6 @@ public interface IUserService
     /// <summary />
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
-
+    /// <summary />
+    Task<AppRole[]> GetAppRoles(CancellationToken cancellationToken = default);
 }

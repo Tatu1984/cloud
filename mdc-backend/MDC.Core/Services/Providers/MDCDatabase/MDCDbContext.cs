@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 namespace MDC.Core.Services.Providers.MDCDatabase
 {
     // To Add migration run the following:
-    // dotnet ef migrations add InitialCreate --startup-project "MDC.Api" --output-dir "MDC.Core/Migrations"
+    // dotnet ef migrations add InitialCreate --startup-project "MDC.Api" --project "MDC.Core" --output-dir "Migrations"
     // You may need to install dotnet EF: dotnet tool install --global dotnet-ef
     internal class MDCDbContext(IConfiguration configuration) : DbContext
     {

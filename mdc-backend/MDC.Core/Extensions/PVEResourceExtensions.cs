@@ -197,7 +197,7 @@ internal static class PVEResourceExtensions
             {
                 Name = workspaceEntry.Name,
                 Description = workspaceEntry.DbWorkspace?.Description,
-                OrganizationId = workspaceEntry.DbWorkspace?.OrganizationId,
+                OrganizationId = workspaceEntry.DbWorkspace?.OrganizationId ?? Guid.Empty,
                 VirtualNetworks = workspaceEntry.VirtualNetworks
                     .Select(vn =>
                     {

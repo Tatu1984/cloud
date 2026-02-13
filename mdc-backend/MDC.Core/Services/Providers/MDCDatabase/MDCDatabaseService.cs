@@ -1,17 +1,13 @@
 ﻿using MDC.Core.Models;
 using MDC.Core.Services.Providers.Authentication;
-using MDC.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Graph.Models;
-using System;
-using System.Linq;
 
 namespace MDC.Core.Services.Providers.MDCDatabase;
 
 internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor mdcPrincipalAccessor, ILogger<MDCDatabaseService> logger) : IMDCDatabaseService
 {
-    const string DefaultOrganizationName = "Default";
+    // const string DefaultOrganizationName = "Default";
 
     public async Task<DbSite> CreateSiteAsync(string name, string description, string apiTokenId, string apiSecret, CancellationToken cancellationToken = default)
     {
@@ -281,15 +277,17 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
             .ToArrayAsync(cancellationToken);
     }
 
-    public async Task<DbWorkspace> CreateWorkspaceAsync(Guid siteId, Guid? organizationId, string workspaceName, string? description, string[] virtualNetworkNames, DatacenterSettings datacenterSettings, CancellationToken cancellationToken = default)
+    public async Task<DbWorkspace> CreateWorkspaceAsync(Guid siteId, Guid organizationId, string workspaceName, string? description, string[] virtualNetworkNames, DatacenterSettings datacenterSettings, CancellationToken cancellationToken = default)
     {
         if (!mdcPrincipalAccessor.IsWorkspaceManager && !mdcPrincipalAccessor.IsGlobalAdministrator) throw new InvalidOperationException("Not authorized.");
         var dbSite = await FindSiteAsync(siteId, cancellationToken) ?? throw new InvalidOperationException("Site not found.");
 
-        var dbOrganization = organizationId == null 
-            ? await GetDefaultOrganizationAsync(dbSite, cancellationToken)
-            : await dbContext.Organizations.FindAsync([organizationId], cancellationToken) ?? throw new InvalidOperationException($"Organization '{organizationId}' not found.");
-        
+        //var dbOrganization = organizationId == null 
+        //    ? await GetDefaultOrganizationAsync(dbSite, cancellationToken)
+        //    : await dbContext.Organizations.FindAsync([organizationId], cancellationToken) ?? throw new InvalidOperationException($"Organization '{organizationId}' not found.");
+
+        var dbOrganization = await dbContext.Organizations.FindAsync([organizationId], cancellationToken) ?? throw new InvalidOperationException($"Organization '{organizationId}' not found.");
+
         if (!dbSite.Organizations.Contains(dbOrganization)) throw new InvalidOperationException("Organization is not a member of Site.");
 
         using var transaction = await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
@@ -589,31 +587,43 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
     }
 
     #region Organizations
-    public async Task<DbOrganization> GetDefaultOrganizationAsync(DbSite site, CancellationToken cancellationToken = default)
-    {
-        var dbOrganization = (await GetOrganizationsByNameAsync(DefaultOrganizationName, cancellationToken)).FirstOrDefault();
-        if (dbOrganization == null)
-        {
-            dbOrganization = await CreateOrganizationAsync(new OrganizationDescriptor
-            { 
-                Name = DefaultOrganizationName,
-                SiteIds = Array.Empty<Guid>() ,
-                OrganizationUserRoles = Array.Empty<OrganizationUserRoleDescriptor>()
-            }, cancellationToken);
-        }
+    //public async Task<DbOrganization> GetDefaultOrganizationAsync(DbSite site, CancellationToken cancellationToken = default)
+    //{
+    //    if (!IsPrivilegedUser)
+    //    {
+    //        var allOrganizations = await GetOrganizationsAsync(cancellationToken);
+    //        var defaultOrganization = allOrganizations.SingleOrDefault();
+    //        if (defaultOrganization == null) throw new InvalidOperationException("Default Organization not found.");
+    //        return defaultOrganization;
+    //    }
 
-        if (!dbOrganization.Sites.Contains(site))
-        {
-            dbOrganization.Sites.Add(site);
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
+    //    var dbOrganization = (await GetOrganizationsByNameAsync(DefaultOrganizationName, cancellationToken)).FirstOrDefault();
+    //    if (dbOrganization == null)
+    //    {
+    //        dbOrganization = await CreateOrganizationAsync(new OrganizationDescriptor
+    //        { 
+    //            Name = DefaultOrganizationName,
+    //            SiteIds = Array.Empty<Guid>() ,
+    //            OrganizationUserRoles = Array.Empty<OrganizationUserRoleDescriptor>()
+    //        }, cancellationToken);
+    //    }
+
+    //    if (!dbOrganization.Sites.Contains(site))
+    //    {
+    //        dbOrganization.Sites.Add(site);
+    //        await dbContext.SaveChangesAsync(cancellationToken);
+    //    }
         
-        return dbOrganization;
-    }
+    //    return dbOrganization;
+    //}
     
     public async Task<DbOrganization[]> GetOrganizationsAsync(CancellationToken cancellationToken = default)
     {
         return await UserOrganizations
+            .Include(i => i.OrganizationUserRoles.Where(j => j.User!.Active))
+            .ThenInclude(i => i.User)
+            .Include(i => i.Sites)
+            .Include(i => i.Workspaces)
             .ToArrayAsync(cancellationToken);
     }
 
@@ -641,7 +651,7 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
     {
         if (!IsPrivilegedUser) throw new InvalidOperationException("Not authorized.");
 
-        if (organizationDescriptor.Name == DefaultOrganizationName) throw new InvalidOperationException($"Cannot create Organization with the default Organization Name: '{DefaultOrganizationName}'");
+        // if (organizationDescriptor.Name == DefaultOrganizationName) throw new InvalidOperationException($"Cannot create Organization with the default Organization Name: '{DefaultOrganizationName}'");
 
         // Ensure that all of the Sites and Users are valid
         var sites = organizationDescriptor.SiteIds.Length > 0 ? (await dbContext.Sites.Where(i => organizationDescriptor.SiteIds.Contains(i.Id)).ToListAsync(cancellationToken)) : new List<DbSite>();
@@ -655,6 +665,7 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
         var organization = await dbContext.Organizations.AddAsync(new DbOrganization
         {
             Name = organizationDescriptor.Name,
+            Description = organizationDescriptor.Description ?? string.Empty,
             Active = true,
             CreatedAt = now,
             UpdatedAt = now,
@@ -682,11 +693,11 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
         return organization.Entity;
     }
 
-    public async Task<DbOrganization> UpdateOrganizationAsync(Guid id, string? name, Guid[] addSiteIds, Guid[] removeSiteIds, OrganizationUserRoleDescriptor[] addUsers, OrganizationUserRoleDescriptor[] removeUsers, CancellationToken cancellationToken = default)
+    public async Task<DbOrganization> UpdateOrganizationAsync(Guid id, string? name, string? description, Guid[] addSiteIds, Guid[] removeSiteIds, OrganizationUserRoleDescriptor[] addUsers, OrganizationUserRoleDescriptor[] removeUsers, CancellationToken cancellationToken = default)
     {
         if (!IsPrivilegedUser) throw new InvalidOperationException("Not authorized.");
 
-        if (name == DefaultOrganizationName) throw new InvalidOperationException($"Cannot change Organization name with the default Organization Name: '{DefaultOrganizationName}'");
+        // if (name == DefaultOrganizationName) throw new InvalidOperationException($"Cannot change Organization name with the default Organization Name: '{DefaultOrganizationName}'");
 
         var dbOrganization = await dbContext
             .Organizations
@@ -715,8 +726,8 @@ internal class MDCDatabaseService(MDCDbContext dbContext, IMDCPrincipalAccessor 
         if (usersToAdd.Count != addUsers.Length) throw new InvalidOperationException("Cannot add users roles which are already members of Organization");
 
         var now = DateTime.UtcNow;
-        if (name != null)
-            dbOrganization.Name = name;
+        if (name != null) dbOrganization.Name = name;
+        if (description != null) dbOrganization.Description = description;
         dbOrganization.UpdatedAt = now;
 
         foreach (var site in sitesToRemove)

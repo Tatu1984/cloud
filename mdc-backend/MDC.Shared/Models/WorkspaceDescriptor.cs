@@ -16,7 +16,7 @@ public class WorkspaceDescriptor
     /// <summary>
     /// 
     /// </summary>
-    public Guid? OrganizationId { get; set; }
+    public Guid OrganizationId { get; set; }
 
     /// <summary>
     /// 

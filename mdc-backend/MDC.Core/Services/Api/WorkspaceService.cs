@@ -2,9 +2,6 @@
 using MDC.Core.Services.Providers.DatacenterFactory;
 using MDC.Core.Services.Providers.MDCDatabase;
 using MDC.Core.Services.Providers.ZeroTier;
-using MDC.Shared.Models;
-using System.Net.WebSockets;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace MDC.Core.Services.Api;
@@ -14,7 +11,7 @@ internal class WorkspaceService(IDatacenterFactoryService datacenterFactoryServi
     public async Task<Workspace> CreateAsync(Guid siteId, WorkspaceDescriptor workspaceDescriptor, CancellationToken cancellationToken = default)
     {
         var datacenterEntry = await datacenterFactoryService.GetDatacenterEntryAsync(siteId, cancellationToken);
-        var defaultDbOrganization = await databaseService.GetDefaultOrganizationAsync(datacenterEntry.DbSite, cancellationToken);
+        // var defaultDbOrganization = await databaseService.GetDefaultOrganizationAsync(datacenterEntry.DbSite, cancellationToken);
 
         List<Func<Task>> actions = new();
 
@@ -23,11 +20,11 @@ internal class WorkspaceService(IDatacenterFactoryService datacenterFactoryServi
 
         // 2. Compute request against available capacity
         WorkspaceOperation[] workspaceOperations = [];
-        actions.Add(async () => await Task.Run(() => workspaceOperations = datacenterEntry.ComputeWorkspaceOperations(workspaceDescriptor, null, defaultDbOrganization)));
+        actions.Add(async () => await Task.Run(() => workspaceOperations = datacenterEntry.ComputeWorkspaceOperations(workspaceDescriptor, null)));
         
         // 3. [Database] Create Database rows for Workspace and Virtual Network VLANs to reserve the Workspace resources
         DbWorkspace? dbWorkspace = null;
-        actions.Add(async () => dbWorkspace = await databaseService.CreateWorkspaceAsync(datacenterEntry.DbSite.Id, workspaceDescriptor.OrganizationId!, workspaceDescriptor.Name, workspaceDescriptor.Description, workspaceDescriptor.VirtualNetworks!.Select(i => i.Name!).ToArray(), datacenterEntry.DatacenterSettings,cancellationToken));
+        actions.Add(async () => dbWorkspace = await databaseService.CreateWorkspaceAsync(datacenterEntry.DbSite.Id, workspaceDescriptor.OrganizationId, workspaceDescriptor.Name, workspaceDescriptor.Description, workspaceDescriptor.VirtualNetworks!.Select(i => i.Name!).ToArray(), datacenterEntry.DatacenterSettings,cancellationToken));
 
         // 4. [PVE] Create Virtual Machines
         actions.Add(async () => await ApplyWorkspaceOperationsAsync(workspaceOperations, dbWorkspace!, datacenterEntry, cancellationToken));
@@ -210,7 +207,7 @@ internal class WorkspaceService(IDatacenterFactoryService datacenterFactoryServi
         if (workspaceEntry.Locked)
             throw new InvalidOperationException($"Workspace Id '{workspaceId}' is locked and cannot be modified.");
 
-        var defaultDbOrganization = await databaseService.GetDefaultOrganizationAsync(datacenterEntry.DbSite, cancellationToken);
+        //var defaultDbOrganization = await databaseService.GetDefaultOrganizationAsync(datacenterEntry.DbSite, cancellationToken);
 
         var workspaceDescriptor = MDCHelper.Patch(workspaceEntry.WorkspaceDescriptor, delta);
 
@@ -221,7 +218,7 @@ internal class WorkspaceService(IDatacenterFactoryService datacenterFactoryServi
 
         // 2. Compute request against available capacity
         WorkspaceOperation[] workspaceOperations = [];
-        actions.Add(async () => await Task.Run(() => workspaceOperations = datacenterEntry.ComputeWorkspaceOperations(workspaceDescriptor, workspaceEntry, defaultDbOrganization)));
+        actions.Add(async () => await Task.Run(() => workspaceOperations = datacenterEntry.ComputeWorkspaceOperations(workspaceDescriptor, workspaceEntry)));
 
         // 3. [Database] Update Database rows for Workspace and Virtual Network VLANs to reserve the Workspace resources
         DbWorkspace? dbWorkspace = null;

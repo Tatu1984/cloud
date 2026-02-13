@@ -10,6 +10,9 @@ public class Organization
     public required string Name { get; set; }
 
     /// <summary />
+    public required string Description { get; set; }
+
+    /// <summary />
     public required bool Active { get; set; }
 
     /// <summary />

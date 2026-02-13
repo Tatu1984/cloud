@@ -28,7 +28,7 @@ internal class OrganizationService(IDatacenterFactoryService datacenterFactorySe
     public async Task<Organization> UpdateAsync(Guid id, OrganizationUpdateDescriptor organizationUpdateDescriptor, CancellationToken cancellationToken = default)
     {
         var existingOrganization = await GetByIdAsync(id, cancellationToken) ?? throw new InvalidOperationException($"Organization Id {id} not found.");
-        var dbOrganization = await databaseService.UpdateOrganizationAsync(id, organizationUpdateDescriptor.Name,organizationUpdateDescriptor.AddSiteIds ?? [], organizationUpdateDescriptor.RemoveSiteIds ?? [], organizationUpdateDescriptor.AddOrganizationUserRoles ?? [], organizationUpdateDescriptor.RemoveOrganizationUserRoles ?? [], cancellationToken);
+        var dbOrganization = await databaseService.UpdateOrganizationAsync(id, organizationUpdateDescriptor.Name, organizationUpdateDescriptor.Description, organizationUpdateDescriptor.AddSiteIds ?? [], organizationUpdateDescriptor.RemoveSiteIds ?? [], organizationUpdateDescriptor.AddOrganizationUserRoles ?? [], organizationUpdateDescriptor.RemoveOrganizationUserRoles ?? [], cancellationToken);
         return await GetByIdAsync(id, cancellationToken) ?? throw new InvalidOperationException($"Updated Organization Id {id} not found.");
     }
 

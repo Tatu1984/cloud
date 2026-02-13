@@ -7,6 +7,9 @@ public class OrganizationDescriptor
     public required string Name { get; set; }
 
     /// <summary />
+    public string? Description { get; set; }
+
+    /// <summary />
     public required OrganizationUserRoleDescriptor[] OrganizationUserRoles { get; set; }
 
     /// <summary />

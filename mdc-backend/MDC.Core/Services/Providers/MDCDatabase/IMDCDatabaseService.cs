@@ -31,7 +31,7 @@ namespace MDC.Core.Services.Providers.MDCDatabase
 
         Task<IEnumerable<DbWorkspace>> GetAllWorkspacesForSiteAsync(Guid siteId, CancellationToken cancellationToken = default);
 
-        Task<DbWorkspace> CreateWorkspaceAsync(Guid siteId, Guid? organizationId, string workspaceName, string? description, string[] virtualNetworkNames, DatacenterSettings datacenterSettings, CancellationToken cancellationToken = default);
+        Task<DbWorkspace> CreateWorkspaceAsync(Guid siteId, Guid organizationId, string workspaceName, string? description, string[] virtualNetworkNames, DatacenterSettings datacenterSettings, CancellationToken cancellationToken = default);
 
         Task<DbWorkspace> UpdateWorkspaceAsync(DatacenterEntry datacenterEntry, Guid workspaceId, WorkspaceDescriptor workspaceDescriptor, CancellationToken cancellationToken = default);
 
@@ -54,7 +54,7 @@ namespace MDC.Core.Services.Providers.MDCDatabase
         #endregion
 
         #region Organizations
-        Task<DbOrganization> GetDefaultOrganizationAsync(DbSite site, CancellationToken cancellationToken = default);
+        //Task<DbOrganization> GetDefaultOrganizationAsync(DbSite site, CancellationToken cancellationToken = default);
 
         Task<DbOrganization[]> GetOrganizationsAsync(CancellationToken cancellationToken = default);
 
@@ -62,7 +62,7 @@ namespace MDC.Core.Services.Providers.MDCDatabase
 
         Task<DbOrganization> CreateOrganizationAsync(OrganizationDescriptor organizationDescriptor, CancellationToken cancellationToken = default);
 
-        Task<DbOrganization> UpdateOrganizationAsync(Guid id, string? name, Guid[] addSiteIds, Guid[] removeSiteIds, OrganizationUserRoleDescriptor[] addUsers, OrganizationUserRoleDescriptor[] removeUsers, CancellationToken cancellationToken = default);
+        Task<DbOrganization> UpdateOrganizationAsync(Guid id, string? name, string? description, Guid[] addSiteIds, Guid[] removeSiteIds, OrganizationUserRoleDescriptor[] addUsers, OrganizationUserRoleDescriptor[] removeUsers, CancellationToken cancellationToken = default);
 
         Task<bool> RemoveOrganizationAsync(Guid id, CancellationToken cancellationToken = default);
 

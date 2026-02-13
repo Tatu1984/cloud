@@ -1,12 +1,6 @@
-﻿using Microsoft.Kiota.Http.Generated;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Sockets;
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace MDC.Core.Services.Providers.PVEClient;
 

@@ -18,9 +18,25 @@ public class UserServiceTests : BaseIntegrationTests
         var service = serviceScope.ServiceProvider.GetRequiredService<IUserService>();
         Assert.NotNull(service);
         Assert.IsType<UserService>(service);
+
         var users = await service.GetAllAsync(true, TestContext.Current.CancellationToken);
         Assert.NotNull(users);
         Assert.NotEmpty(users);
+    }
+
+    [Fact]
+    public async Task GetAppRolesAsync()
+    {
+        IServiceCollection serviceDescriptors = new ServiceCollection();
+        using IServiceScope serviceScope = AssembleIntegrationTest(serviceDescriptors, null);
+
+        var service = serviceScope.ServiceProvider.GetRequiredService<IUserService>();
+        Assert.NotNull(service);
+        Assert.IsType<UserService>(service);
+
+        var appRoles = await service.GetAppRoles(TestContext.Current.CancellationToken);
+        Assert.NotNull(appRoles);
+        Assert.NotEmpty(appRoles);  
     }
 
     //[Fact]

@@ -286,17 +286,21 @@ internal class DatacenterEntry : DatacenterEntryBase
         }
     }
 
-    private void Normalize(WorkspaceDescriptor workspaceDescriptor, WorkspaceEntry? existingWorkspaceEntry, DbOrganization defaultOrganization)
+    private void Normalize(WorkspaceDescriptor workspaceDescriptor, WorkspaceEntry? existingWorkspaceEntry)
     {
         // Ensure that there is an Organization described
         {
             if (existingWorkspaceEntry == null)
             {
-                workspaceDescriptor.OrganizationId ??= defaultOrganization.Id;
+                //if (workspaceDescriptor.OrganizationId == null)
+                //    throw new InvalidOperationException("Workspace definition must contain an OrganizationId when creating a new Workspace");
+                
+                if (!DbSite.Organizations.Any(i => i.Id == workspaceDescriptor.OrganizationId))
+                    throw new InvalidOperationException($"Workspace definition OrganizationId '{workspaceDescriptor.OrganizationId}' does not exist in Datacenter");
             }
             else
             {
-                if (workspaceDescriptor.OrganizationId != null && workspaceDescriptor.OrganizationId != existingWorkspaceEntry.DbWorkspace?.OrganizationId)
+                if (workspaceDescriptor.OrganizationId != existingWorkspaceEntry.DbWorkspace?.OrganizationId)
                     throw new InvalidOperationException("Cannot change the Organization assigned to an existing Workspace");
             }
         }
@@ -327,10 +331,10 @@ internal class DatacenterEntry : DatacenterEntryBase
         public long TotalStorageAssigned = 0;
     }
 
-    public WorkspaceOperation[] ComputeWorkspaceOperations(WorkspaceDescriptor workspaceDescriptor, WorkspaceEntry? existingWorkspaceEntry, DbOrganization defaultOrganization)
+    public WorkspaceOperation[] ComputeWorkspaceOperations(WorkspaceDescriptor workspaceDescriptor, WorkspaceEntry? existingWorkspaceEntry)
     {
         // Normalize the values of the workspace descriptor against existing data, if any
-        Normalize(workspaceDescriptor, existingWorkspaceEntry, defaultOrganization);
+        Normalize(workspaceDescriptor, existingWorkspaceEntry);
 
         // Prepare the initial state
         // Note: Assume there is one storage pool for images (hyperconverged for all nodes);  Is there enough space, with 20% remaining?

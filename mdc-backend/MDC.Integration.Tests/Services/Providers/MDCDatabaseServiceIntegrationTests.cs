@@ -1,10 +1,6 @@
-﻿using MDC.Core.Services.Providers;
-using MDC.Core.Services.Providers.MDCDatabase;
+﻿using MDC.Core.Services.Providers.MDCDatabase;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using static MDC.Integration.Tests.BaseIntegrationTests;
 
 /*  These tests requires the following user secrets to be set up in the MDC.IntegrationTests project.
  {

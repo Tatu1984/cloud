@@ -1,6 +1,7 @@
 ﻿using MDC.Core.Services.Providers.MDCDatabase;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
+using System.Linq;
 
 namespace MDC.Core.Services.Api;
 
@@ -85,7 +86,7 @@ internal class UserService(IMDCDatabaseService databaseService, GraphServiceClie
 
         foreach (var organizationOperation in organizationOperations)
         {
-            var dbOrganization = await databaseService.UpdateOrganizationAsync(organizationOperation.Key, null, [], [],
+            var dbOrganization = await databaseService.UpdateOrganizationAsync(organizationOperation.Key, null, null, [], [],
                 (organizationOperation.Where(i => i.Operation == "add")).Select(i => new OrganizationUserRoleDescriptor
                 {
                     Role = i.Data.Role,
@@ -152,61 +153,71 @@ internal class UserService(IMDCDatabaseService databaseService, GraphServiceClie
         await databaseService.RemoveUserAsync(id, cancellationToken); 
     }
 
+    public async Task<AppRole[]> GetAppRoles(CancellationToken cancellationToken = default)
+    {
+        var servicePrincipal = await graphClient.ServicePrincipals[options.Value.EnterpriseAppObjectId].GetAsync(null, cancellationToken) ?? throw new InvalidOperationException("Unable to fetch Application Registration from Azure AD");
+        return servicePrincipal.AppRoles?
+            .Where(i => i.IsEnabled == true)
+            .Select(i => new AppRole
+            {
+                DisplayName = i.DisplayName!,
+                Value = i.Value!,
+                Description = i.Description!
+            }).ToArray() ?? Array.Empty<AppRole>();
+    }
+
     private async Task<User[]> ComputeUsersAsync(DbUser[] dbUsers, bool getUnregisteredUsers, CancellationToken cancellationToken = default)
     {
         var servicePrincipal = await graphClient.ServicePrincipals[options.Value.EnterpriseAppObjectId].GetAsync(null, cancellationToken) ?? throw new InvalidOperationException("Unable to fetch Application Registration from Azure AD");
 
-        var appRoleAssignments = await GetAppRoleAssignments(cancellationToken);
-        var lookup = appRoleAssignments.ToLookup(a => a.PrincipalId!.Value);
+        var users = new List<User>();
+        var dictDbUsers = dbUsers.ToDictionary(i => i.Id, i => i);
 
-        var users = dbUsers
-            .Where(dbUser => lookup.Contains(dbUser.Id))
-            .Select(dbUser =>
-            new User
-            {
-                Id = dbUser.Id,
-                DisplayName = lookup[dbUser.Id].FirstOrDefault()?.PrincipalDisplayName ?? dbUser.Name,
-                IsRegistered = true,
-                OrganizationRoles = dbUser.OrganizationUserRoles.Select(our => new UserOrganizationRole
-                {
-                    OrganizationId = our.OrganizationId,
-                    Role = our.Role,
-                }).ToArray(),
-                AppRoles = lookup[dbUser.Id]
-                    .Select(a => servicePrincipal.AppRoles?.FirstOrDefault(appRole => appRole.Id == a.AppRoleId))
-                    .Where(appRole => appRole != null && appRole.DisplayName != null)
-                    .Select(appRole => appRole!.DisplayName!)
-                    .ToArray()
-            })
-            .ToList();
-
-        // Retrieve the unregistered users
-        if (getUnregisteredUsers)
+        var page = (await graphClient.Users.GetAsync(i =>
         {
-            var unregisteredUsers = lookup
-            .Where(g => !dbUsers.Any(u => u.Id == g.Key))
-            .Select(g => g.Key)
-            .ToArray();
-
-            if (unregisteredUsers.Length > 0)
-            {
-                var graphUsers = (await graphClient.Users.GetAsync(null, cancellationToken))?.Value?.ToDictionary(i => i.Id!) ?? throw new InvalidOperationException("Unable to retrieve users from Azure Ad.");
-
-                users.AddRange(unregisteredUsers.Select(user => new User
+            i.QueryParameters.Select = ["id", "displayName", "mail"];
+            i.QueryParameters.Expand = ["AppRoleAssignments"];
+            i.QueryParameters.Filter = "creationType eq 'LocalAccount'";
+        }, cancellationToken)) ?? throw new InvalidOperationException("Unable to retrieve users from Azure Ad.");
+        while (true)
+        {
+            users.AddRange(page.Value!
+                .Select(u =>
                 {
-                    Id = user,
-                    DisplayName = graphUsers.GetValueOrDefault(user.ToString())?.DisplayName ?? user.ToString(),
-                    IsRegistered = false,
-                    OrganizationRoles = Array.Empty<UserOrganizationRole>(),
-                    AppRoles = lookup[user]
+                    var existingUser = dictDbUsers.TryGetValue(Guid.Parse(u.Id!), out var dbUser) ? dbUser : null;
+
+                    return new User
+                    {
+                        Id = Guid.Parse(u.Id!),
+                        DisplayName = u.DisplayName ?? u.Id!,
+                        EmailAddress = u.Mail,
+                        IsRegistered = existingUser != null,
+                        OrganizationRoles = Array.Empty<UserOrganizationRole>(),
+                        AppRoles = (u.AppRoleAssignments ?? throw new InvalidOperationException($"Failed to expand AppRoleAssignments for user with Id {u.Id}"))
                         .Select(a => servicePrincipal.AppRoles?.FirstOrDefault(appRole => appRole.Id == a.AppRoleId))
                         .Where(appRole => appRole != null && appRole.DisplayName != null)
                         .Select(appRole => appRole!.DisplayName!)
                         .ToArray()
-                }));
-            }
+                    };
+                })
+                .ToArray()
+            );
+
+            if (page.OdataNextLink == null)
+                break;
+
+            page = (await graphClient.Users
+                .WithUrl(page.OdataNextLink)
+                .GetAsync(i =>
+                {
+                    i.QueryParameters.Select = ["id", "displayName", "mail"];
+                    i.QueryParameters.Expand = ["AppRoleAssignments"];
+                    i.QueryParameters.Filter = "creationType eq 'LocalAccount'";
+                }, cancellationToken)) ?? throw new InvalidOperationException("Unable to retrieve users from Azure Ad.");
         }
-        return users.ToArray();
+        return users
+            .Where(i => getUnregisteredUsers ? true : i.IsRegistered)
+            .ToArray();
     }
 
     private async Task<Microsoft.Graph.Models.AppRoleAssignment[]> GetAppRoleAssignments(CancellationToken cancellationToken = default)

@@ -7,6 +7,9 @@ public class OrganizationUpdateDescriptor
     public string? Name { get; set; }
 
     /// <summary />
+    public string? Description { get; set; }
+
+    /// <summary />
     public OrganizationUserRoleDescriptor[]? AddOrganizationUserRoles { get; set; }
 
     /// <summary />

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace MDC.Core.Services.Providers.PVEClient;
+﻿namespace MDC.Core.Services.Providers.PVEClient;
 
 internal class PVEClientServiceOptions
 {

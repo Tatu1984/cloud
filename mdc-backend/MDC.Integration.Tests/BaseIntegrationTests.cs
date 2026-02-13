@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Graph;
-using Microsoft.Identity.Client;
 using System.Reflection;
 using Xunit.Sdk;
 
