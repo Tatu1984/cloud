@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,8 +12,12 @@ import {
   RefreshCw,
   Loader2,
   Globe,
+  Plus,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -29,10 +34,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import { ConsoleOpenButton } from "@/components/console-open-button";
-import { useWorkspace } from "@/lib/mdc/hooks";
-import { VirtualMachine, VirtualNetwork } from "@/lib/mdc/types";
+import { useWorkspace, useSite, useUpdateWorkspaceDescriptor } from "@/lib/mdc/hooks";
+import {
+  VirtualMachine,
+  VirtualNetwork,
+  VirtualMachineDescriptorOperation,
+} from "@/lib/mdc/types";
 
 const DEMO_VMS: VirtualMachine[] = [
   {
@@ -74,10 +100,68 @@ function StatusBadge({ status }: { status?: string }) {
 export default function WorkspaceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const workspaceId = params.id as string;
 
   const { data: workspace, isLoading, isError, refetch } =
     useWorkspace(workspaceId);
+
+  // Fetch site to get available VM templates
+  const { data: site } = useSite(workspace?.siteId || "", {
+    enabled: !!workspace?.siteId,
+  });
+  const availableTemplates = site?.virtualMachineTemplates || [];
+
+  const updateDescriptor = useUpdateWorkspaceDescriptor();
+
+  // Create VM dialog state
+  const [createVMOpen, setCreateVMOpen] = useState(false);
+  const [vmName, setVmName] = useState("");
+  const [vmTemplateName, setVmTemplateName] = useState("");
+  const [vmCpuCores, setVmCpuCores] = useState("2");
+  const [vmMemoryMB, setVmMemoryMB] = useState("2048");
+
+  const resetVMForm = () => {
+    setVmName("");
+    setVmTemplateName("");
+    setVmCpuCores("2");
+    setVmMemoryMB("2048");
+  };
+
+  const handleCreateVM = async () => {
+    if (!vmName.trim()) return;
+
+    try {
+      await updateDescriptor.mutateAsync({
+        workspaceId,
+        delta: {
+          virtualMachines: [
+            {
+              name: vmName.trim(),
+              templateName: vmTemplateName || undefined,
+              cpuCores: parseInt(vmCpuCores),
+              memoryMB: vmMemoryMB,
+              operation: VirtualMachineDescriptorOperation.Add,
+            },
+          ],
+        },
+      });
+
+      toast({
+        title: "VM created",
+        description: `Virtual machine "${vmName}" is being provisioned.`,
+      });
+      setCreateVMOpen(false);
+      resetVMForm();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create VM";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const realVMs = workspace?.virtualMachines || [];
   const useDemo = realVMs.length === 0 && !isLoading;
@@ -235,14 +319,128 @@ export default function WorkspaceDetailPage() {
                     Manage VMs and access consoles
                   </CardDescription>
                 </div>
-                {useDemo && (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-500 text-amber-600"
-                  >
-                    Demo data
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {useDemo && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500 text-amber-600"
+                    >
+                      Demo data
+                    </Badge>
+                  )}
+                  <Dialog open={createVMOpen} onOpenChange={(open) => {
+                    setCreateVMOpen(open);
+                    if (!open) resetVMForm();
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create VM
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>Create Virtual Machine</DialogTitle>
+                        <DialogDescription>
+                          Add a new VM to workspace &quot;{workspace?.name}&quot;
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="vm-name">Name</Label>
+                          <Input
+                            id="vm-name"
+                            placeholder="e.g. web-server"
+                            value={vmName}
+                            onChange={(e) => setVmName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Template</Label>
+                          <Select value={vmTemplateName} onValueChange={setVmTemplateName}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableTemplates.length > 0 ? (
+                                availableTemplates.map((t) => (
+                                  <SelectItem key={`${t.name}-${t.revision}`} value={t.name}>
+                                    {t.name} (rev {t.revision})
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="_none" disabled>
+                                  No templates available
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>CPU Cores</Label>
+                            <Select value={vmCpuCores} onValueChange={setVmCpuCores}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[1, 2, 4, 8, 16].map((c) => (
+                                  <SelectItem key={c} value={c.toString()}>
+                                    {c} {c === 1 ? "core" : "cores"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Memory</Label>
+                            <Select value={vmMemoryMB} onValueChange={setVmMemoryMB}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[
+                                  { label: "512 MB", value: "512" },
+                                  { label: "1 GB", value: "1024" },
+                                  { label: "2 GB", value: "2048" },
+                                  { label: "4 GB", value: "4096" },
+                                  { label: "8 GB", value: "8192" },
+                                  { label: "16 GB", value: "16384" },
+                                ].map((m) => (
+                                  <SelectItem key={m.value} value={m.value}>
+                                    {m.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setCreateVMOpen(false);
+                            resetVMForm();
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateVM}
+                          disabled={!vmName.trim() || updateDescriptor.isPending}
+                        >
+                          {updateDescriptor.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="mr-2 h-4 w-4" />
+                          )}
+                          Create VM
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
