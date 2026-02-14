@@ -356,25 +356,28 @@ export default function WorkspaceDetailPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Template</Label>
-                          <Select value={vmTemplateName} onValueChange={setVmTemplateName}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableTemplates.length > 0 ? (
-                                availableTemplates.map((t) => (
+                          <Label htmlFor="vm-template">Template</Label>
+                          {availableTemplates.length > 0 ? (
+                            <Select value={vmTemplateName} onValueChange={setVmTemplateName}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableTemplates.map((t) => (
                                   <SelectItem key={`${t.name}-${t.revision}`} value={t.name}>
                                     {t.name} (rev {t.revision})
                                   </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="_none" disabled>
-                                  No templates available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              id="vm-template"
+                              placeholder="e.g. UbuntuDesktop"
+                              value={vmTemplateName}
+                              onChange={(e) => setVmTemplateName(e.target.value)}
+                            />
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">

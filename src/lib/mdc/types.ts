@@ -221,26 +221,26 @@ export interface VirtualMachineNetworkAdapterDescriptor {
 // ==================== Enums ====================
 
 export enum VirtualMachineDescriptorOperation {
-  None = 0,
-  Add = 1,
-  Update = 2,
-  Remove = 3,
-  Reboot = 4,
-  Restart = 5,
-  Redeploy = 6,
+  None = "None",
+  Add = "Add",
+  Update = "Update",
+  Remove = "Remove",
+  Reboot = "Reboot",
+  Restart = "Restart",
+  Redeploy = "Redeploy",
 }
 
 export enum VirtualNetworkDescriptorOperation {
-  None = 0,
-  Add = 1,
-  Update = 2,
-  Remove = 3,
+  None = "None",
+  Add = "Add",
+  Update = "Update",
+  Remove = "Remove",
 }
 
 export enum VirtualNetworkGatewayWANNetworkType {
-  Egress = 0,
-  Internal = 1,
-  Public = 2,
+  Egress = "Egress",
+  Internal = "Internal",
+  Public = "Public",
 }
 
 // ==================== OData Response Types ====================
