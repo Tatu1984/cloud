@@ -158,11 +158,28 @@ export default function WorkspacesPage() {
     setVms([]);
   };
 
+  // Get available orgs for the selected site
+  const selectedSite = sites?.find((s) => s.id === selectedSiteId);
+  const siteOrgIds = selectedSite?.organizationIds || [];
+  const availableOrgs = organizations?.filter((org) =>
+    siteOrgIds.includes(org.id)
+  ) || [];
+
+  const handleSiteChange = (siteId: string) => {
+    setSelectedSiteId(siteId);
+    setVms([]);
+    // Auto-select organization from the site's orgs
+    const site = sites?.find((s) => s.id === siteId);
+    const orgIds = site?.organizationIds || [];
+    const firstOrg = organizations?.find((o) => orgIds.includes(o.id));
+    setSelectedOrgId(firstOrg?.id || "");
+  };
+
   const handleCreateWorkspace = async () => {
-    if (!selectedSiteId || !workspaceName) {
+    if (!selectedSiteId || !workspaceName || !selectedOrgId) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (name, site, and organization)",
         variant: "destructive",
       });
       return;
@@ -171,7 +188,7 @@ export default function WorkspacesPage() {
     const descriptor: WorkspaceDescriptor = {
       name: workspaceName,
       description: workspaceDescription || undefined,
-      organizationId: selectedOrgId || undefined,
+      organizationId: selectedOrgId,
       virtualMachines: vms.length > 0
         ? vms.map((vm): VirtualMachineDescriptor => ({
             name: vm.name,
@@ -217,7 +234,6 @@ export default function WorkspacesPage() {
   };
 
   // Get available templates from selected site
-  const selectedSite = sites?.find((s) => s.id === selectedSiteId);
   const availableTemplates = selectedSite?.virtualMachineTemplates || [];
 
   const totalVMs = workspaces?.reduce(
@@ -281,7 +297,7 @@ export default function WorkspacesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="site">Site *</Label>
-                      <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+                      <Select value={selectedSiteId} onValueChange={handleSiteChange}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a site" />
                         </SelectTrigger>
@@ -303,13 +319,17 @@ export default function WorkspacesPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="organization">Organization</Label>
-                    <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                    <Label htmlFor="organization">Organization *</Label>
+                    <Select
+                      value={selectedOrgId}
+                      onValueChange={setSelectedOrgId}
+                      disabled={!selectedSiteId}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select an organization (optional)" />
+                        <SelectValue placeholder={selectedSiteId ? "Select an organization" : "Select a site first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {organizations?.map((org) => (
+                        {availableOrgs.map((org) => (
                           <SelectItem key={org.id} value={org.id}>
                             {org.name}
                           </SelectItem>
@@ -398,18 +418,18 @@ export default function WorkspacesPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Template</Label>
-                          <Select
-                            value={vm.templateName}
-                            onValueChange={(v) =>
-                              handleVMChange(index, "templateName", v)
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableTemplates.length > 0 ? (
-                                availableTemplates.map((template) => (
+                          {availableTemplates.length > 0 ? (
+                            <Select
+                              value={vm.templateName}
+                              onValueChange={(v) =>
+                                handleVMChange(index, "templateName", v)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select template" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableTemplates.map((template) => (
                                   <SelectItem
                                     key={template.name}
                                     value={template.name}
@@ -421,14 +441,18 @@ export default function WorkspacesPage() {
                                       </span>
                                     )}
                                   </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="ubuntu-22.04" disabled>
-                                  No templates available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              placeholder="e.g. UbuntuDesktop"
+                              value={vm.templateName}
+                              onChange={(e) =>
+                                handleVMChange(index, "templateName", e.target.value)
+                              }
+                            />
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>CPU Cores</Label>
@@ -494,7 +518,7 @@ export default function WorkspacesPage() {
                 </Button>
                 <Button
                   onClick={handleCreateWorkspace}
-                  disabled={!workspaceName || !selectedSiteId || addWorkspaceMutation.isPending}
+                  disabled={!workspaceName || !selectedSiteId || !selectedOrgId || addWorkspaceMutation.isPending}
                 >
                   {addWorkspaceMutation.isPending ? (
                     <>

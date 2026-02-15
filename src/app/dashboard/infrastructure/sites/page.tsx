@@ -33,8 +33,9 @@ import {
   MemoryStick,
   HardDrive,
 } from "lucide-react";
-import { useSites, useOrganizations } from "@/lib/mdc/hooks";
-import { Site, SiteNode, VirtualMachineTemplate } from "@/lib/mdc/types";
+import { useSites, useOrganizations, useDownloadableTemplates, useDownloadTemplate } from "@/lib/mdc/hooks";
+import { Site, SiteNode, VirtualMachineTemplate, Template } from "@/lib/mdc/types";
+import { useToast } from "@/hooks/use-toast";
 
 // Format memory string
 function formatMemory(memory?: string): string {
@@ -53,6 +54,222 @@ function getTotalStorage(storage?: { size?: number }[]): string {
   const total = storage.reduce((sum, s) => sum + (s.size || 0), 0);
   if (total === 0) return "N/A";
   return `${total} GB`;
+}
+
+function SiteTemplatesTab({ site }: { site: Site }) {
+  const { toast } = useToast();
+  const { data: downloadable, isLoading: loadingDownloadable } = useDownloadableTemplates(site.id);
+  const downloadMutation = useDownloadTemplate();
+
+  const hasLocalTemplates =
+    (site.virtualMachineTemplates?.length || 0) +
+    (site.bastionTemplates?.length || 0) +
+    (site.gatewayTemplates?.length || 0) > 0;
+
+  const handleDownload = async (template: Template) => {
+    try {
+      await downloadMutation.mutateAsync({
+        siteId: site.id,
+        descriptor: { digest: template.digest },
+      });
+      toast({
+        title: "Template download started",
+        description: `"${template.name}" is being downloaded to ${site.name}.`,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to download template";
+      toast({
+        title: "Download failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Downloadable Templates */}
+      <div>
+        <h4 className="font-medium mb-2 flex items-center gap-2">
+          Available Templates
+          {loadingDownloadable && <Loader2 className="h-3 w-3 animate-spin" />}
+        </h4>
+        {downloadable && downloadable.length > 0 ? (
+          <div className="grid gap-2">
+            {downloadable.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg border"
+              >
+                <div className="flex items-center gap-3">
+                  <FileBox className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{t.name}</span>
+                  <Badge variant="outline">v{t.revision}</Badge>
+                  <Badge variant="secondary">{t.type}</Badge>
+                  {t.downloaded && (
+                    <Badge className="bg-green-500">Downloaded</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {t.cores && (
+                      <span className="flex items-center gap-1">
+                        <Cpu className="h-3 w-3" />
+                        {t.cores}
+                      </span>
+                    )}
+                    {t.memory && (
+                      <span className="flex items-center gap-1">
+                        <MemoryStick className="h-3 w-3" />
+                        {formatMemory(t.memory)}
+                      </span>
+                    )}
+                  </div>
+                  {!t.downloaded && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownload(t)}
+                      disabled={downloadMutation.isPending}
+                    >
+                      {downloadMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Download"
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !loadingDownloadable ? (
+          <p className="text-sm text-muted-foreground">
+            No templates available for download. Templates must be published to the registry first.
+          </p>
+        ) : null}
+      </div>
+
+      {/* Installed VM Templates */}
+      {site.virtualMachineTemplates && site.virtualMachineTemplates.length > 0 && (
+        <div>
+          <h4 className="font-medium mb-2">Installed VM Templates</h4>
+          <div className="grid gap-2">
+            {site.virtualMachineTemplates.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg border"
+              >
+                <div className="flex items-center gap-3">
+                  <FileBox className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{t.name}</span>
+                  <Badge variant="outline">v{t.revision}</Badge>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {t.cores && (
+                    <span className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" />
+                      {t.cores}
+                    </span>
+                  )}
+                  {t.memory && (
+                    <span className="flex items-center gap-1">
+                      <MemoryStick className="h-3 w-3" />
+                      {formatMemory(t.memory)}
+                    </span>
+                  )}
+                  {t.storage && (
+                    <span className="flex items-center gap-1">
+                      <HardDrive className="h-3 w-3" />
+                      {getTotalStorage(t.storage)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bastion Templates */}
+      {site.bastionTemplates && site.bastionTemplates.length > 0 && (
+        <div>
+          <h4 className="font-medium mb-2">Bastion Templates</h4>
+          <div className="grid gap-2">
+            {site.bastionTemplates.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg border"
+              >
+                <div className="flex items-center gap-3">
+                  <FileBox className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">{t.name}</span>
+                  <Badge variant="secondary">v{t.revision}</Badge>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {t.cores && (
+                    <span className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" />
+                      {t.cores}
+                    </span>
+                  )}
+                  {t.memory && (
+                    <span className="flex items-center gap-1">
+                      <MemoryStick className="h-3 w-3" />
+                      {formatMemory(t.memory)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gateway Templates */}
+      {site.gatewayTemplates && site.gatewayTemplates.length > 0 && (
+        <div>
+          <h4 className="font-medium mb-2">Gateway Templates</h4>
+          <div className="grid gap-2">
+            {site.gatewayTemplates.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg border"
+              >
+                <div className="flex items-center gap-3">
+                  <FileBox className="h-4 w-4 text-green-500" />
+                  <span className="font-medium">{t.name}</span>
+                  <Badge variant="default">v{t.revision}</Badge>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {t.cores && (
+                    <span className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" />
+                      {t.cores}
+                    </span>
+                  )}
+                  {t.memory && (
+                    <span className="flex items-center gap-1">
+                      <MemoryStick className="h-3 w-3" />
+                      {formatMemory(t.memory)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasLocalTemplates && (!downloadable || downloadable.length === 0) && !loadingDownloadable && (
+        <div className="text-center py-8 text-muted-foreground">
+          <FileBox className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>No templates available for this site</p>
+          <p className="text-xs mt-1">Templates need to be published to the registry and downloaded to sites.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function SitesPage() {
@@ -350,128 +567,7 @@ export default function SitesPage() {
             </TabsContent>
 
             <TabsContent value="templates" className="space-y-4">
-              {/* VM Templates */}
-              {selectedSite?.virtualMachineTemplates &&
-                selectedSite.virtualMachineTemplates.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">VM Templates</h4>
-                    <div className="grid gap-2">
-                      {selectedSite.virtualMachineTemplates.map((t, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-3 rounded-lg border"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileBox className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{t.name}</span>
-                            <Badge variant="outline">v{t.revision}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {t.cores && (
-                              <span className="flex items-center gap-1">
-                                <Cpu className="h-3 w-3" />
-                                {t.cores}
-                              </span>
-                            )}
-                            {t.memory && (
-                              <span className="flex items-center gap-1">
-                                <MemoryStick className="h-3 w-3" />
-                                {formatMemory(t.memory)}
-                              </span>
-                            )}
-                            {t.storage && (
-                              <span className="flex items-center gap-1">
-                                <HardDrive className="h-3 w-3" />
-                                {getTotalStorage(t.storage)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Bastion Templates */}
-              {selectedSite?.bastionTemplates &&
-                selectedSite.bastionTemplates.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">Bastion Templates</h4>
-                    <div className="grid gap-2">
-                      {selectedSite.bastionTemplates.map((t, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-3 rounded-lg border"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileBox className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">{t.name}</span>
-                            <Badge variant="secondary">v{t.revision}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {t.cores && (
-                              <span className="flex items-center gap-1">
-                                <Cpu className="h-3 w-3" />
-                                {t.cores}
-                              </span>
-                            )}
-                            {t.memory && (
-                              <span className="flex items-center gap-1">
-                                <MemoryStick className="h-3 w-3" />
-                                {formatMemory(t.memory)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Gateway Templates */}
-              {selectedSite?.gatewayTemplates &&
-                selectedSite.gatewayTemplates.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">Gateway Templates</h4>
-                    <div className="grid gap-2">
-                      {selectedSite.gatewayTemplates.map((t, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-3 rounded-lg border"
-                        >
-                          <div className="flex items-center gap-3">
-                            <FileBox className="h-4 w-4 text-green-500" />
-                            <span className="font-medium">{t.name}</span>
-                            <Badge variant="default">v{t.revision}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {t.cores && (
-                              <span className="flex items-center gap-1">
-                                <Cpu className="h-3 w-3" />
-                                {t.cores}
-                              </span>
-                            )}
-                            {t.memory && (
-                              <span className="flex items-center gap-1">
-                                <MemoryStick className="h-3 w-3" />
-                                {formatMemory(t.memory)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {!selectedSite?.virtualMachineTemplates?.length &&
-                !selectedSite?.bastionTemplates?.length &&
-                !selectedSite?.gatewayTemplates?.length && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileBox className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No templates available for this site</p>
-                  </div>
-                )}
+              {selectedSite && <SiteTemplatesTab site={selectedSite} />}
             </TabsContent>
 
             <TabsContent value="info" className="space-y-4">

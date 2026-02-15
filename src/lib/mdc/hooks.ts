@@ -13,6 +13,8 @@ import {
   OrganizationDescriptor,
   UserRegistrationDescriptor,
   UserUpdateDescriptor,
+  Template,
+  DownloadTemplateDescriptor,
 } from './types';
 import { useMemo, useCallback } from 'react';
 import { getMsalInstance, mdcApiRequest } from '@/lib/msal-config';
@@ -24,6 +26,7 @@ export const mdcQueryKeys = {
   organization: (id: string) => [...mdcQueryKeys.organizations(), id] as const,
   sites: () => [...mdcQueryKeys.all, 'sites'] as const,
   site: (id: string) => [...mdcQueryKeys.sites(), id] as const,
+  downloadableTemplates: (siteId: string) => [...mdcQueryKeys.sites(), siteId, 'downloadableTemplates'] as const,
   users: () => [...mdcQueryKeys.all, 'users'] as const,
   user: (id: string) => [...mdcQueryKeys.users(), id] as const,
   workspaces: () => [...mdcQueryKeys.all, 'workspaces'] as const,
@@ -136,6 +139,36 @@ export function useAddWorkspaceToSite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mdcQueryKeys.workspaces() });
       queryClient.invalidateQueries({ queryKey: mdcQueryKeys.sites() });
+    },
+  });
+}
+
+export function useDownloadableTemplates(
+  siteId: string,
+  options?: Omit<UseQueryOptions<Template[], MDCError>, 'queryKey' | 'queryFn'>
+) {
+  const client = useMDCClient();
+
+  return useQuery({
+    queryKey: mdcQueryKeys.downloadableTemplates(siteId),
+    queryFn: () => client.getDownloadableTemplates(siteId),
+    enabled: !!siteId,
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+}
+
+export function useDownloadTemplate() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ siteId, descriptor }: { siteId: string; descriptor: DownloadTemplateDescriptor }) =>
+      client.downloadTemplate(siteId, descriptor),
+    onSuccess: (_, { siteId }) => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.site(siteId) });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.sites() });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.downloadableTemplates(siteId) });
     },
   });
 }

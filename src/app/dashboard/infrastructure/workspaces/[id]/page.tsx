@@ -129,7 +129,14 @@ export default function WorkspaceDetailPage() {
   };
 
   const handleCreateVM = async () => {
-    if (!vmName.trim()) return;
+    if (!vmName.trim() || !vmTemplateName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "VM name and template are required",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       await updateDescriptor.mutateAsync({
@@ -138,7 +145,7 @@ export default function WorkspaceDetailPage() {
           virtualMachines: [
             {
               name: vmName.trim(),
-              templateName: vmTemplateName || undefined,
+              templateName: vmTemplateName.trim(),
               cpuCores: parseInt(vmCpuCores),
               memoryMB: vmMemoryMB,
               operation: VirtualMachineDescriptorOperation.Add,
@@ -156,8 +163,8 @@ export default function WorkspaceDetailPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create VM";
       toast({
-        title: "Error",
-        description: message,
+        title: "Error creating VM",
+        description: `${message}. Ensure the template exists on the site and the site node is online.`,
         variant: "destructive",
       });
     }
@@ -431,7 +438,7 @@ export default function WorkspaceDetailPage() {
                         </Button>
                         <Button
                           onClick={handleCreateVM}
-                          disabled={!vmName.trim() || updateDescriptor.isPending}
+                          disabled={!vmName.trim() || !vmTemplateName.trim() || updateDescriptor.isPending}
                         >
                           {updateDescriptor.isPending ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -274,17 +274,17 @@ export interface SiteDescriptor {
 export interface Template {
   name: string;
   revision: number;
-  type: 'gateway' | 'bastion' | 'virtualMachine';
-  description?: string;
+  type: string;
   cores?: number;
   memory?: string;
   storage?: VirtualMachineTemplateStorage[];
+  size?: number;
+  downloaded: boolean;
+  digest: string;
 }
 
 export interface DownloadTemplateDescriptor {
-  templateName: string;
-  templateRevision: number;
-  targetNode?: string;
+  digest: string;
 }
 
 // ==================== Organization Descriptor Types ====================
