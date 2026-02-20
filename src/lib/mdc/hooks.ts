@@ -143,6 +143,20 @@ export function useAddWorkspaceToSite() {
   });
 }
 
+export function useCreateWorkspace() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ siteId, descriptor }: { siteId: string; descriptor: WorkspaceDescriptor }) =>
+      client.createWorkspace(siteId, descriptor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.workspaces() });
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.sites() });
+    },
+  });
+}
+
 export function useDownloadableTemplates(
   siteId: string,
   options?: Omit<UseQueryOptions<Template[], MDCError>, 'queryKey' | 'queryFn'>
