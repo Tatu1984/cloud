@@ -402,8 +402,7 @@ export function useMDCAuthTest() {
     queryKey: [...mdcQueryKeys.all, 'authTest'],
     queryFn: async () => {
       const isAuthenticated = await client.testAuth();
-      const isAdmin = isAuthenticated ? await client.testAdminAuth() : false;
-      return { isAuthenticated, isAdmin };
+      return { isAuthenticated };
     },
     staleTime: 60 * 1000, // 1 minute
     retry: false,
