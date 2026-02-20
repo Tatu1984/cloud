@@ -282,15 +282,6 @@ export class MDCClient {
       return false;
     }
   }
-
-  async testAdminAuth(): Promise<boolean> {
-    try {
-      await this.request('/api/AuthTest/admin');
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
 
 // Custom error class for MDC API errors

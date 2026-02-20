@@ -21,24 +21,37 @@ import {
   Cloud,
   User,
   UserPlus,
-  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useMicrosoftAuth } from '@/hooks/use-microsoft-auth'
+import { isEntraIDConfigured, getMsalInstance } from '@/lib/msal-config'
 
 export default function LandingPage() {
-  const [isVisible, setIsVisible] = useState(false)
   const [activeFeature, setActiveFeature] = useState(0)
-  const { signUpWithMicrosoft, isLoading, error, isConfigured, clearError } = useMicrosoftAuth()
+  const [signUpLoading, setSignUpLoading] = useState(false)
+  const [signUpError, setSignUpError] = useState<string | null>(null)
+  const isConfigured = isEntraIDConfigured()
 
-  const adminAppUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL || 'http://localhost:3001';
-
-  useEffect(() => {
-    setIsVisible(true)
-  }, [])
+  const handleSignUp = async () => {
+    setSignUpLoading(true)
+    setSignUpError(null)
+    try {
+      const { loginRequest } = await import('@/lib/msal-config')
+      const msalInstance = getMsalInstance()
+      if (!msalInstance) return
+      await msalInstance.initialize()
+      await msalInstance.loginPopup({ ...loginRequest, prompt: 'create' })
+      window.location.href = '/auth/login'
+    } catch (err: unknown) {
+      if (err instanceof Error && !err.message.includes('user_cancelled')) {
+        setSignUpError(err.message)
+      }
+    } finally {
+      setSignUpLoading(false)
+    }
+  }
 
   // Auto-rotate features
   useEffect(() => {
@@ -107,7 +120,7 @@ export default function LandingPage() {
       </div>
 
       {/* Header */}
-      <header className="relative w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -131,24 +144,13 @@ export default function LandingPage() {
                 User Login
               </Button>
             </Link>
-            <a href={adminAppUrl}>
-              <Button
-                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 shadow-lg shadow-red-500/25"
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                Admin
-              </Button>
-            </a>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
       <section className="relative w-full max-w-7xl mx-auto py-24 md:py-32 px-4">
-        <div className={cn(
-          "max-w-5xl mx-auto text-center space-y-8 transition-all duration-1000",
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-        )}>
+        <div className="max-w-5xl mx-auto text-center space-y-8 animate-fade-in-up">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 backdrop-blur-sm">
             <Sparkles className="h-4 w-4 text-cyan-400" />
@@ -179,22 +181,22 @@ export default function LandingPage() {
               <div className="flex justify-center">
                 <Button
                   size="lg"
-                  onClick={signUpWithMicrosoft}
-                  disabled={isLoading}
+                  onClick={handleSignUp}
+                  disabled={signUpLoading}
                   className="text-lg px-10 h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0 shadow-xl shadow-emerald-500/30 transition-all hover:shadow-emerald-500/40 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <UserPlus className="mr-2 h-5 w-5" />
-                  {isLoading ? 'Signing up...' : 'Sign Up with Microsoft'}
+                  {signUpLoading ? 'Signing up...' : 'Sign Up with Microsoft'}
                 </Button>
               </div>
             )}
 
             {/* Error Display */}
-            {error && (
+            {signUpError && (
               <div className="flex justify-center">
                 <div className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
-                  <span>{error}</span>
-                  <button onClick={clearError} className="hover:text-red-300">&times;</button>
+                  <span>{signUpError}</span>
+                  <button onClick={() => setSignUpError(null)} className="hover:text-red-300">&times;</button>
                 </div>
               </div>
             )}
@@ -207,19 +209,9 @@ export default function LandingPage() {
                   className="text-lg px-8 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-xl shadow-blue-500/30 transition-all hover:shadow-blue-500/40 hover:scale-105"
                 >
                   <User className="mr-2 h-5 w-5" />
-                  Sign In as User
+                  Sign In
                 </Button>
               </Link>
-              <a href={adminAppUrl}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg px-8 h-14 bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500/50 backdrop-blur-sm"
-                >
-                  <Shield className="mr-2 h-5 w-5" />
-                  Sign In as Admin
-                </Button>
-              </a>
             </div>
           </div>
 
@@ -237,10 +229,7 @@ export default function LandingPage() {
         </div>
 
         {/* Animated Dashboard Preview */}
-        <div className={cn(
-          "max-w-4xl mx-auto mt-20 transition-all duration-1000 delay-300",
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-        )}>
+        <div className="max-w-4xl mx-auto mt-20 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
           <div className="relative">
             {/* Glow Effect */}
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-violet-500/20 rounded-3xl blur-2xl" />
@@ -311,11 +300,8 @@ export default function LandingPage() {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className={cn(
-                "text-center transition-all duration-700",
-                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-              )}
-              style={{ transitionDelay: `${600 + index * 100}ms` }}
+              className="text-center animate-fade-in-up"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 mb-3">
                 <stat.icon className="h-5 w-5 text-cyan-400" />
@@ -331,10 +317,7 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <section id="features" className="relative w-full max-w-7xl mx-auto py-24 px-4">
-        <div className={cn(
-          "text-center mb-16 transition-all duration-700",
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        )}>
+        <div className="text-center mb-16 animate-fade-in-up">
           <Badge className="mb-4 bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/20">
             Core Features
           </Badge>
@@ -354,11 +337,10 @@ export default function LandingPage() {
             <Card
               key={concept.title}
               className={cn(
-                "group relative bg-slate-900/50 border-slate-700/50 overflow-hidden transition-all duration-500 hover:border-slate-600/50 cursor-pointer",
-                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
+                "group relative bg-slate-900/50 border-slate-700/50 overflow-hidden transition-all duration-500 hover:border-slate-600/50 cursor-pointer animate-fade-in-up",
                 activeFeature === index && "border-slate-500/50 shadow-xl"
               )}
-              style={{ transitionDelay: `${800 + index * 100}ms` }}
+              style={{ animationDelay: `${index * 100}ms` }}
               onClick={() => setActiveFeature(index)}
             >
               {/* Hover Gradient */}
@@ -407,11 +389,8 @@ export default function LandingPage() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className={cn(
-                "p-4 rounded-xl bg-slate-900/30 border border-slate-800/50 text-center transition-all duration-500 hover:bg-slate-900/50 hover:border-slate-700/50",
-                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-              )}
-              style={{ transitionDelay: `${1000 + index * 100}ms` }}
+              className="p-4 rounded-xl bg-slate-900/30 border border-slate-800/50 text-center transition-all duration-500 hover:bg-slate-900/50 hover:border-slate-700/50 animate-fade-in-up"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               <feature.icon className="h-8 w-8 text-cyan-400 mx-auto mb-3" />
               <div className="font-medium text-white text-sm">{feature.text}</div>
@@ -423,10 +402,7 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <section className="relative w-full max-w-7xl mx-auto py-24 px-4">
-        <div className={cn(
-          "max-w-4xl mx-auto transition-all duration-700",
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        )}>
+        <div className="max-w-4xl mx-auto animate-fade-in-up">
           <div className="relative">
             {/* Background Glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-violet-600/20 rounded-3xl blur-3xl" />
@@ -458,15 +434,6 @@ export default function LandingPage() {
                       User Dashboard
                     </Button>
                   </Link>
-                  <a href={adminAppUrl}>
-                    <Button
-                      size="lg"
-                      className="text-lg px-10 h-14 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 shadow-xl shadow-red-500/30 transition-all hover:shadow-red-500/40 hover:scale-105"
-                    >
-                      <Shield className="mr-2 h-5 w-5" />
-                      Admin Console
-                    </Button>
-                  </a>
                 </div>
 
                 <p className="text-sm text-slate-500 mt-6">
@@ -494,13 +461,6 @@ export default function LandingPage() {
             </div>
 
             <div className="flex items-center gap-6 text-sm text-slate-400">
-              <a
-                href={adminAppUrl}
-                className="hover:text-slate-300 transition-colors inline-flex items-center gap-1"
-              >
-                Administrator?
-                <ExternalLink className="h-3 w-3" />
-              </a>
               <span>© 2024 Cloud Platform</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Powered by Next.js & Go</span>
