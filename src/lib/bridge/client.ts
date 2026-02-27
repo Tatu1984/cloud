@@ -11,7 +11,7 @@ import {
   PVEProxyInfo,
 } from './types';
 
-const BRIDGE_API_URL = process.env.NEXT_PUBLIC_BRIDGE_API_URL || '/api/v1/bridge';
+const BRIDGE_API_URL = process.env.NEXT_PUBLIC_BRIDGE_API_URL || 'https://www.microdatacluster.com';
 
 class BridgeAPIError extends Error {
   constructor(
