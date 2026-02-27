@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Cloud Platform",
+  title: "Landing Zone",
   description: "Enterprise-grade cloud infrastructure platform",
 };
 

@@ -12,7 +12,7 @@ export default function AuthLayout({
       <header className="p-6">
         <Link href="/" className="flex items-center gap-2 text-white hover:text-slate-300 transition-colors w-fit">
           <Cloud className="h-6 w-6 text-blue-500" />
-          <span className="font-semibold">Cloud Platform</span>
+          <span className="font-semibold">Landing Zone</span>
         </Link>
       </header>
 
@@ -23,7 +23,7 @@ export default function AuthLayout({
 
       {/* Footer */}
       <footer className="p-6 text-center text-slate-500 text-sm">
-        <p>Cloud Platform v1.0</p>
+        <p>Landing Zone v1.0</p>
       </footer>
     </div>
   );

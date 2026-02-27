@@ -1,4 +1,4 @@
-// Core Types for Cloud Platform
+// Core Types for Landing Zone
 
 export interface User {
   id: string;
