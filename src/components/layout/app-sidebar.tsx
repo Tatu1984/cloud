@@ -143,7 +143,7 @@ export function TenantSidebar() {
             <Cloud className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Cloud Platform</span>
+            <span className="text-sm font-semibold">Landing Zone</span>
             <span className="text-xs text-muted-foreground">{organization?.name}</span>
           </div>
         </div>
