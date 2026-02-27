@@ -33,8 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/lib/mdc/hooks";
 import { getMsalInstance, mdcApiRequest } from "@/lib/msal-config";
 
-const MDC_API_URL =
-  process.env.NEXT_PUBLIC_MDC_API_URL || "https://www.microdatacluster.com";
+// VNC WebSocket uses microdatacluster.com (no www) — TLS cert is only valid for this domain.
+const VNC_BASE_URL = process.env.NEXT_PUBLIC_MDC_API_URL || "https://microdatacluster.com";
 
 const DEV_API_KEY = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY || "";
 
@@ -45,7 +45,7 @@ function getWsUrl(
   target: ConsoleTarget,
   authParam: string
 ): string {
-  const base = MDC_API_URL.replace(/^http/, "ws");
+  const base = VNC_BASE_URL.replace(/^http/, "ws");
   const path =
     target === "bastion"
       ? `${base}/api/vnc/Workspaces(${workspaceId})/BastionConsole`
@@ -54,10 +54,7 @@ function getWsUrl(
 }
 
 async function getAuthParam(): Promise<string> {
-  if (DEV_API_KEY) {
-    return `apikey=${encodeURIComponent(DEV_API_KEY)}`;
-  }
-
+  // Try MSAL Bearer token first (primary auth)
   const msalInstance = getMsalInstance();
   if (msalInstance) {
     try {
@@ -76,17 +73,23 @@ async function getAuthParam(): Promise<string> {
                 "MSAL returned a Graph token instead of MDC API token. " +
                 "Check NEXT_PUBLIC_MDC_SCOPE and app registration API permissions."
               );
-              return "";
+            } else {
+              return `token=${encodeURIComponent(response.accessToken)}`;
             }
           } catch {
-            // If we can't decode, try using it anyway
+            // If we can't decode, use it anyway
+            return `token=${encodeURIComponent(response.accessToken)}`;
           }
-          return `token=${encodeURIComponent(response.accessToken)}`;
         }
       }
     } catch {
-      // No auth available
+      // Fall through to API key
     }
+  }
+
+  // Fall back to dev API key
+  if (DEV_API_KEY) {
+    return `apikey=${encodeURIComponent(DEV_API_KEY)}`;
   }
 
   return "";

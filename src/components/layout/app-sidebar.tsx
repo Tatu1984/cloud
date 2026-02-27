@@ -61,64 +61,64 @@ const tenantNavItems = [
       { title: "Remote Networks", url: "/dashboard/infrastructure/remote-networks" },
     ],
   },
-  {
-    title: "Compute",
-    icon: Server,
-    items: [
-      { title: "Virtual Machines", url: "/dashboard/compute/vms" },
-      { title: "Templates", url: "/dashboard/compute/templates" },
-      { title: "Snapshots", url: "/dashboard/compute/snapshots" },
-    ],
-  },
-  {
-    title: "Networking",
-    icon: Network,
-    items: [
-      { title: "VPCs", url: "/dashboard/networking/vpcs" },
-      { title: "Subnets", url: "/dashboard/networking/subnets" },
-      { title: "Security Groups", url: "/dashboard/networking/security-groups" },
-      { title: "Public IPs", url: "/dashboard/networking/public-ips" },
-      { title: "Load Balancers", url: "/dashboard/networking/load-balancers" },
-      { title: "DNS", url: "/dashboard/networking/dns" },
-    ],
-  },
-  {
-    title: "Storage",
-    icon: HardDrive,
-    items: [
-      { title: "Volumes", url: "/dashboard/storage/volumes" },
-      { title: "Buckets", url: "/dashboard/storage/buckets" },
-      { title: "File Shares", url: "/dashboard/storage/file-shares" },
-      { title: "Backups", url: "/dashboard/storage/backups" },
-    ],
-  },
-  {
-    title: "Databases",
-    icon: Database,
-    items: [
-      { title: "PostgreSQL", url: "/dashboard/databases/postgresql" },
-      { title: "MySQL", url: "/dashboard/databases/mysql" },
-      { title: "Backups", url: "/dashboard/databases/backups" },
-    ],
-  },
-  {
-    title: "Observability",
-    icon: BarChart3,
-    items: [
-      { title: "Metrics", url: "/dashboard/observability/metrics" },
-      { title: "Logs", url: "/dashboard/observability/logs" },
-      { title: "Alerts", url: "/dashboard/observability/alerts" },
-    ],
-  },
-  {
-    title: "Billing",
-    icon: CreditCard,
-    items: [
-      { title: "Usage", url: "/dashboard/billing/usage" },
-      { title: "Invoices", url: "/dashboard/billing/invoices" },
-      { title: "Payment", url: "/dashboard/billing/payment" },
-    ],
-  },
+  // {
+  //   title: "Compute",
+  //   icon: Server,
+  //   items: [
+  //     { title: "Virtual Machines", url: "/dashboard/compute/vms" },
+  //     { title: "Templates", url: "/dashboard/compute/templates" },
+  //     { title: "Snapshots", url: "/dashboard/compute/snapshots" },
+  //   ],
+  // },
+  // {
+  //   title: "Networking",
+  //   icon: Network,
+  //   items: [
+  //     { title: "VPCs", url: "/dashboard/networking/vpcs" },
+  //     { title: "Subnets", url: "/dashboard/networking/subnets" },
+  //     { title: "Security Groups", url: "/dashboard/networking/security-groups" },
+  //     { title: "Public IPs", url: "/dashboard/networking/public-ips" },
+  //     { title: "Load Balancers", url: "/dashboard/networking/load-balancers" },
+  //     { title: "DNS", url: "/dashboard/networking/dns" },
+  //   ],
+  // },
+  // {
+  //   title: "Storage",
+  //   icon: HardDrive,
+  //   items: [
+  //     { title: "Volumes", url: "/dashboard/storage/volumes" },
+  //     { title: "Buckets", url: "/dashboard/storage/buckets" },
+  //     { title: "File Shares", url: "/dashboard/storage/file-shares" },
+  //     { title: "Backups", url: "/dashboard/storage/backups" },
+  //   ],
+  // },
+  // {
+  //   title: "Databases",
+  //   icon: Database,
+  //   items: [
+  //     { title: "PostgreSQL", url: "/dashboard/databases/postgresql" },
+  //     { title: "MySQL", url: "/dashboard/databases/mysql" },
+  //     { title: "Backups", url: "/dashboard/databases/backups" },
+  //   ],
+  // },
+  // {
+  //   title: "Observability",
+  //   icon: BarChart3,
+  //   items: [
+  //     { title: "Metrics", url: "/dashboard/observability/metrics" },
+  //     { title: "Logs", url: "/dashboard/observability/logs" },
+  //     { title: "Alerts", url: "/dashboard/observability/alerts" },
+  //   ],
+  // },
+  // {
+  //   title: "Billing",
+  //   icon: CreditCard,
+  //   items: [
+  //     { title: "Usage", url: "/dashboard/billing/usage" },
+  //     { title: "Invoices", url: "/dashboard/billing/invoices" },
+  //     { title: "Payment", url: "/dashboard/billing/payment" },
+  //   ],
+  // },
   {
     title: "Settings",
     icon: Settings,

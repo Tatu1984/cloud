@@ -19,12 +19,13 @@ import {
   UserUpdateDescriptor,
 } from './types';
 
-// MDC API URL - proxy through Next.js API route to handle self-signed cert + CORS
-// In the browser, use the /api/mdc proxy; server-side can call directly
+// MDC API URL - in the browser, route through the Next.js proxy (/api/proxy) to avoid
+// CORS issues (the MDC server redirects preflight requests which browsers block).
+// Server-side calls go directly to the backend.
 const MDC_API_URL =
   typeof window !== 'undefined'
-    ? '/api/mdc'
-    : (process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com');
+    ? '/api/proxy'
+    : (process.env.NEXT_PUBLIC_MDC_API_URL || 'https://microdatacluster.com');
 
 export interface MDCClientConfig {
   baseUrl?: string;
@@ -43,22 +44,22 @@ export class MDCClient {
   private async getHeaders(): Promise<HeadersInit> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Accept': 'application/json;odata.metadata=minimal;odata.streaming=true',
     };
 
-    // Use API key when available (known to work with MDC API)
-    const apiKey = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY;
-    if (apiKey) {
-      headers['X-API-Key'] = apiKey;
-      return headers;
-    }
-
-    // Otherwise try MSAL Bearer token
+    // Try MSAL Bearer token first (primary auth method)
     if (this.getAccessToken) {
       const token = await this.getAccessToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        return headers;
       }
+    }
+
+    // Fall back to dev API key when no MSAL token is available
+    const apiKey = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY;
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
     }
 
     return headers;
@@ -297,14 +298,10 @@ export class MDCError extends Error {
   }
 }
 
-// Default client instance
-let defaultClient: MDCClient | null = null;
-
 export function getMDCClient(config?: MDCClientConfig): MDCClient {
-  if (!defaultClient || config) {
-    defaultClient = new MDCClient(config);
-  }
-  return defaultClient;
+  // Always create a new instance when config is provided (e.g. with getAccessToken)
+  // to ensure auth is always fresh and not cached without a token getter
+  return new MDCClient(config);
 }
 
 // Helper to create client with MSAL token

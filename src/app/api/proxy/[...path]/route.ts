@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 
-const MDC_BACKEND = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://www.microdatacluster.com';
+const MDC_BACKEND = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://microdatacluster.com';
 
 // Agent that accepts self-signed certificates
 const agent = new https.Agent({ rejectUnauthorized: false });
@@ -39,7 +39,6 @@ async function proxy(req: NextRequest, pathSegments: string[], body?: string) {
   }
 
   try {
-    // Use Node.js http module to make request with custom agent (self-signed cert support)
     const response = await nodeFetch(url, {
       method: req.method,
       headers,
