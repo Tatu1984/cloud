@@ -53,7 +53,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ConsoleOpenButton } from "@/components/console-open-button";
-import { useWorkspace, useSite, useUpdateWorkspaceDescriptor } from "@/lib/mdc/hooks";
+import { useWorkspace, useSite, useOrganization, useUpdateWorkspaceDescriptor, useLockWorkspace } from "@/lib/mdc/hooks";
 import {
   VirtualMachine,
   VirtualNetwork,
@@ -103,16 +103,40 @@ export default function WorkspaceDetailPage() {
   const { toast } = useToast();
   const workspaceId = params.id as string;
 
-  const { data: workspace, isLoading, isError, refetch } =
-    useWorkspace(workspaceId);
+  const { data: workspace, isLoading, isFetching, isError, refetch } =
+    useWorkspace(workspaceId, { staleTime: 0 });
 
-  // Fetch site to get available VM templates
+  // Fetch site to get available VM templates and site name
   const { data: site } = useSite(workspace?.siteId || "", {
     enabled: !!workspace?.siteId,
   });
   const availableTemplates = site?.virtualMachineTemplates || [];
 
+  // Fetch organization to get organization name
+  const { data: organization } = useOrganization(workspace?.organizationId || "", {
+    enabled: !!workspace?.organizationId,
+  });
+
   const updateDescriptor = useUpdateWorkspaceDescriptor();
+  const lockWorkspace = useLockWorkspace();
+
+  const handleToggleLock = async () => {
+    if (!workspace) return;
+    const newLocked = !workspace.locked;
+    try {
+      await lockWorkspace.mutateAsync({ workspaceId, locked: newLocked });
+      toast({
+        title: newLocked ? "Workspace locked" : "Workspace unlocked",
+        description: `"${workspace.name}" has been ${newLocked ? "locked" : "unlocked"}.`,
+      });
+    } catch {
+      toast({
+        title: "Action failed",
+        description: `Could not ${newLocked ? "lock" : "unlock"} "${workspace.name}".`,
+        variant: "destructive",
+      });
+    }
+  };
 
   // Create VM dialog state
   const [createVMOpen, setCreateVMOpen] = useState(false);
@@ -211,18 +235,36 @@ export default function WorkspaceDetailPage() {
             )}
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
+        <div className="flex items-center gap-2">
+          {!isLoading && workspace && (
+            <Button
+              variant="outline"
+              onClick={handleToggleLock}
+              disabled={lockWorkspace.isPending}
+            >
+              {lockWorkspace.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : workspace.locked ? (
+                <Unlock className="mr-2 h-4 w-4" />
+              ) : (
+                <Lock className="mr-2 h-4 w-4" />
+              )}
+              {workspace.locked ? "Unlock" : "Lock"}
+            </Button>
           )}
-          Refresh
-        </Button>
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            {isFetching ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {isError && (
@@ -293,7 +335,7 @@ export default function WorkspaceDetailPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Lock</CardTitle>
+                <CardTitle className="text-sm font-medium">Workspace Lock</CardTitle>
                 {workspace?.locked ? (
                   <Lock className="h-4 w-4 text-muted-foreground" />
                 ) : (
@@ -306,7 +348,7 @@ export default function WorkspaceDetailPage() {
                 ) : (
                   <div className="text-2xl font-bold">
                     {workspace?.locked ? (
-                      <Badge variant="destructive">Locked</Badge>
+                      <Badge variant="secondary">Locked</Badge>
                     ) : (
                       <Badge variant="secondary">Unlocked</Badge>
                     )}
@@ -315,6 +357,42 @@ export default function WorkspaceDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Workspace information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
+                <div>
+                  <dt className="text-sm text-muted-foreground">Site</dt>
+                  <dd className="mt-1 font-medium">
+                    {isLoading ? <Skeleton className="h-4 w-24" /> : (site?.name || workspace?.siteId || "—")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Organization</dt>
+                  <dd className="mt-1 font-medium">
+                    {isLoading ? <Skeleton className="h-4 w-24" /> : (organization?.name || workspace?.organizationId || "—")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Created At</dt>
+                  <dd className="mt-1 font-medium">
+                    {isLoading ? <Skeleton className="h-4 w-32" /> : (workspace?.createdAt ? new Date(workspace.createdAt).toLocaleString() : "—")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Updated At</dt>
+                  <dd className="mt-1 font-medium">
+                    {isLoading ? <Skeleton className="h-4 w-32" /> : (workspace?.updatedAt ? new Date(workspace.updatedAt).toLocaleString() : "—")}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
 
           {/* VM Table */}
           <Card>

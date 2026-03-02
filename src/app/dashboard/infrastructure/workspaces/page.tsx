@@ -19,6 +19,8 @@ import {
   Router,
   ChevronDown,
   ChevronUp,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +86,7 @@ import {
   useSite,
   useOrganizations,
   useCreateWorkspace,
+  useLockWorkspace,
 } from "@/lib/mdc/hooks";
 import {
   Workspace,
@@ -1241,6 +1244,24 @@ export default function WorkspacesPage() {
   );
 
   const { data: workspaces, isLoading, isError, refetch } = useWorkspaces();
+  const lockWorkspace = useLockWorkspace();
+
+  const handleToggleLock = async (workspace: Workspace) => {
+    const newLocked = !workspace.locked;
+    try {
+      await lockWorkspace.mutateAsync({ workspaceId: workspace.id, locked: newLocked });
+      toast({
+        title: newLocked ? "Workspace locked" : "Workspace unlocked",
+        description: `"${workspace.name}" has been ${newLocked ? "locked" : "unlocked"}.`,
+      });
+    } catch {
+      toast({
+        title: "Action failed",
+        description: `Could not ${newLocked ? "lock" : "unlock"} "${workspace.name}".`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredWorkspaces =
     workspaces?.filter((workspace) =>
@@ -1438,6 +1459,7 @@ export default function WorkspacesPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>VMs</TableHead>
                   <TableHead>Networks</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Updated</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -1476,6 +1498,19 @@ export default function WorkspacesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      {workspace.locked ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Lock className="h-3 w-3" />
+                          Locked
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1">
+                          <Unlock className="h-3 w-3" />
+                          Unlocked
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <span className="text-sm text-muted-foreground">
                         {formatDate(workspace.createdAt)}
                       </span>
@@ -1508,6 +1543,23 @@ export default function WorkspacesPage() {
                           >
                             <Settings className="mr-2 h-4 w-4" />
                             Manage
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleToggleLock(workspace)}
+                            disabled={lockWorkspace.isPending}
+                          >
+                            {workspace.locked ? (
+                              <>
+                                <Unlock className="mr-2 h-4 w-4" />
+                                Unlock Workspace
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="mr-2 h-4 w-4" />
+                                Lock Workspace
+                              </>
+                            )}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
