@@ -222,7 +222,7 @@ export interface VirtualMachineNetworkAdapterDescriptor {
 
 export enum VirtualMachineDescriptorOperation {
   None = "None",
-  Add = "Add",
+  Add = "add",
   Update = "Update",
   Remove = "Remove",
   Reboot = "Reboot",
@@ -232,7 +232,7 @@ export enum VirtualMachineDescriptorOperation {
 
 export enum VirtualNetworkDescriptorOperation {
   None = "None",
-  Add = "Add",
+  Add = "add",
   Update = "Update",
   Remove = "Remove",
 }
