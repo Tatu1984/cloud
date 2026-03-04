@@ -87,6 +87,7 @@ import {
   useOrganizations,
   useCreateWorkspace,
   useLockWorkspace,
+  useDeleteWorkspace,
 } from "@/lib/mdc/hooks";
 import {
   Workspace,
@@ -1245,6 +1246,7 @@ export default function WorkspacesPage() {
 
   const { data: workspaces, isLoading, isError, refetch } = useWorkspaces();
   const lockWorkspace = useLockWorkspace();
+  const deleteWorkspace = useDeleteWorkspace();
 
   const handleToggleLock = async (workspace: Workspace) => {
     const newLocked = !workspace.locked;
@@ -1602,13 +1604,25 @@ export default function WorkspacesPage() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                toast({
-                  title: "Delete not available",
-                  description:
-                    "Workspace deletion is not yet available in the MDC API",
-                  variant: "destructive",
+                if (!workspaceToDelete) return;
+                const name = workspaceToDelete.name;
+                deleteWorkspace.mutate(workspaceToDelete.id, {
+                  onSuccess: () => {
+                    toast({
+                      title: "Workspace deleted",
+                      description: `"${name}" has been permanently deleted.`,
+                    });
+                    setWorkspaceToDelete(null);
+                  },
+                  onError: () => {
+                    toast({
+                      title: "Delete failed",
+                      description: `Could not delete "${name}". Please try again.`,
+                      variant: "destructive",
+                    });
+                    setWorkspaceToDelete(null);
+                  },
                 });
-                setWorkspaceToDelete(null);
               }}
             >
               Delete Workspace

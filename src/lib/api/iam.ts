@@ -1,7 +1,7 @@
 // IAM API Client
 // Handles roles, permissions, and service accounts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://www.microdatacluster.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://microdatacluster.com';
 
 export interface ApiError {
   code: string;

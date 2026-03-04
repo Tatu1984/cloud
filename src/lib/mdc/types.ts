@@ -6,6 +6,7 @@
 export interface Organization {
   id: string; // UUID
   name: string;
+  description?: string;
   active: boolean;
   organizationUserRoles?: OrganizationUserRole[];
   siteIds: string[]; // UUIDs

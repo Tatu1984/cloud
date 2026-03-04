@@ -336,6 +336,19 @@ export function useLockWorkspace() {
   });
 }
 
+export function useDeleteWorkspace() {
+  const client = useMDCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (workspaceId: string) => client.deleteWorkspace(workspaceId),
+    onSuccess: (_, workspaceId) => {
+      queryClient.invalidateQueries({ queryKey: mdcQueryKeys.workspaces() });
+      queryClient.removeQueries({ queryKey: mdcQueryKeys.workspace(workspaceId) });
+    },
+  });
+}
+
 // ==================== Remote Networks Hooks ====================
 
 export function useRemoteNetworks(

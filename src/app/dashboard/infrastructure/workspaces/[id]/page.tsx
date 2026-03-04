@@ -14,6 +14,7 @@ import {
   Globe,
   Plus,
   X,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ConsoleOpenButton } from "@/components/console-open-button";
-import { useWorkspace, useSite, useOrganization, useUpdateWorkspaceDescriptor, useLockWorkspace } from "@/lib/mdc/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace, useSite, useOrganization, useUpdateWorkspaceDescriptor, useLockWorkspace, useDeleteWorkspace, mdcQueryKeys } from "@/lib/mdc/hooks";
 import {
   VirtualMachine,
   VirtualNetwork,
@@ -117,8 +119,13 @@ export default function WorkspaceDetailPage() {
     enabled: !!workspace?.organizationId,
   });
 
+  const queryClient = useQueryClient();
   const updateDescriptor = useUpdateWorkspaceDescriptor();
   const lockWorkspace = useLockWorkspace();
+  const deleteWorkspace = useDeleteWorkspace();
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   const handleToggleLock = async () => {
     if (!workspace) return;
@@ -726,6 +733,114 @@ export default function WorkspaceDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Delete Workspace */}
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="text-destructive">Delete Workspace</CardTitle>
+              <CardDescription>
+                Permanently delete this workspace and all its virtual machines, networks, and data. This action cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="destructive"
+                disabled={isLoading || !workspace}
+                onClick={() => {
+                  setDeleteConfirmName("");
+                  setDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Workspace
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* GitHub-style delete confirmation dialog */}
+          <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+            if (!deleteWorkspace.isPending) setDeleteDialogOpen(open);
+          }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-destructive">Delete Workspace</DialogTitle>
+                <DialogDescription asChild>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <p>
+                      This action <strong className="text-foreground">cannot be undone</strong>. This will permanently delete the{" "}
+                      <strong className="text-foreground">{workspace?.name}</strong> workspace including all virtual machines, networks, and data.
+                    </p>
+                    <p>
+                      Please type <strong className="text-foreground select-all font-mono">{workspace?.name}</strong> to confirm.
+                    </p>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Input
+                  placeholder={workspace?.name}
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && deleteConfirmName === workspace?.name && !deleteWorkspace.isPending) {
+                      e.preventDefault();
+                      deleteWorkspace.mutate(workspaceId, {
+                        onSuccess: () => {
+                          queryClient.removeQueries({ queryKey: mdcQueryKeys.workspace(workspaceId) });
+                          setDeleteDialogOpen(false);
+                          toast({ title: "Workspace deleted", description: `"${workspace?.name}" has been permanently deleted.` });
+                          router.push("/dashboard/infrastructure/workspaces");
+                        },
+                        onError: () => {
+                          toast({ title: "Delete failed", description: `Could not delete "${workspace?.name}". Please try again.`, variant: "destructive" });
+                        },
+                      });
+                    }
+                  }}
+                  disabled={deleteWorkspace.isPending}
+                  autoFocus
+                />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteDialogOpen(false)}
+                  disabled={deleteWorkspace.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirmName !== workspace?.name || deleteWorkspace.isPending}
+                  onClick={() => {
+                    deleteWorkspace.mutate(workspaceId, {
+                      onSuccess: () => {
+                        queryClient.removeQueries({ queryKey: mdcQueryKeys.workspace(workspaceId) });
+                        setDeleteDialogOpen(false);
+                        toast({ title: "Workspace deleted", description: `"${workspace?.name}" has been permanently deleted.` });
+                        router.push("/dashboard/infrastructure/workspaces");
+                      },
+                      onError: () => {
+                        toast({ title: "Delete failed", description: `Could not delete "${workspace?.name}". Please try again.`, variant: "destructive" });
+                      },
+                    });
+                  }}
+                >
+                  {deleteWorkspace.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete this workspace
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
