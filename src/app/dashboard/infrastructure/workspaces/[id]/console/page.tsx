@@ -35,7 +35,7 @@ import { useWorkspace } from "@/lib/mdc/hooks";
 import { getMsalInstance, mdcApiRequest } from "@/lib/msal-config";
 
 const MDC_API_URL =
-  process.env.NEXT_PUBLIC_MDC_API_URL || "https://www.microdatacluster.com";
+  process.env.NEXT_PUBLIC_MDC_API_URL || "https://microdatacluster.com";
 
 // Dev/testing API key fallback
 const DEV_API_KEY = process.env.NEXT_PUBLIC_MDC_DEV_API_KEY || "";
@@ -332,25 +332,26 @@ export default function WorkspaceConsolePage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="dark flex items-center justify-between border-b border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-100">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
+            className="text-neutral-100 hover:bg-neutral-700 hover:text-white"
             onClick={() =>
               router.push(`/dashboard/infrastructure/workspaces/${workspaceId}`)
             }
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Monitor className="h-5 w-5 text-muted-foreground" />
+          <Monitor className="h-5 w-5 text-neutral-400" />
           <div>
-            <h1 className="text-lg font-semibold leading-none">
+            <h1 className="text-lg font-semibold leading-none text-neutral-100">
               {wsLoading
                 ? "Loading..."
                 : `Console: ${workspace?.name || workspaceId}`}
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               {targetLabel}
             </p>
           </div>
@@ -365,10 +366,10 @@ export default function WorkspaceConsolePage() {
               onValueChange={handleTargetChange}
               disabled={status === "connecting"}
             >
-              <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectTrigger className="w-[200px] h-8 text-xs bg-neutral-800 text-neutral-100 border-neutral-600 hover:bg-neutral-700">
                 <SelectValue placeholder="Select target" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-neutral-900 text-neutral-100 border-neutral-700 [&_[role=option]:focus]:bg-neutral-700 [&_[role=option]:focus]:text-white [&_[role=option][data-state=checked]]:text-white">
                 <SelectItem value="bastion">
                   <div className="flex items-center gap-2">
                     <Shield className="h-3 w-3" />
@@ -397,6 +398,7 @@ export default function WorkspaceConsolePage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="text-neutral-100 hover:bg-neutral-700 hover:text-white"
                       onClick={handleClipboard}
                     >
                       <Clipboard className="h-4 w-4" />
@@ -410,6 +412,7 @@ export default function WorkspaceConsolePage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="text-neutral-100 hover:bg-neutral-700 hover:text-white"
                       onClick={handleCtrlAltDel}
                     >
                       <Power className="h-4 w-4" />
@@ -423,6 +426,7 @@ export default function WorkspaceConsolePage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="text-neutral-100 hover:bg-neutral-700 hover:text-white"
                       onClick={handleFullscreen}
                     >
                       {isFullscreen ? (
@@ -443,17 +447,17 @@ export default function WorkspaceConsolePage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="border-neutral-600 bg-transparent text-neutral-100 hover:bg-neutral-700 hover:text-white"
                 onClick={handleDisconnect}
               >
                 Disconnect
               </Button>
             ) : (
               <Button
-                variant="default"
                 size="sm"
                 onClick={connect}
                 disabled={!noVNCLoaded}
-                className="gap-1"
+                className="gap-1 bg-blue-600 text-white hover:bg-blue-500"
               >
                 <RefreshCw className="h-3 w-3" />
                 {status === "error" ? "Retry" : "Connect"}

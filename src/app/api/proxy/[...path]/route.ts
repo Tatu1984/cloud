@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 
 const MDC_BACKEND = process.env.NEXT_PUBLIC_MDC_API_URL || 'https://microdatacluster.com';
+console.log('[MDC Proxy] Backend URL:', MDC_BACKEND);
 
 // Agent that accepts self-signed certificates
 const agent = new https.Agent({ rejectUnauthorized: false });
@@ -39,22 +40,28 @@ async function proxy(req: NextRequest, pathSegments: string[], body?: string) {
   }
 
   try {
-    const response = await nodeFetch(url, {
+    const { status, contentType, buffer } = await nodeFetch(url, {
       method: req.method,
       headers,
       body: body || undefined,
     });
 
-    return new NextResponse(response.body, {
-      status: response.status,
+    // 204 No Content — return empty response
+    if (status === 204 || buffer.length === 0) {
+      return new NextResponse(null, { status });
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
+      status,
       headers: {
-        'content-type': response.headers.get('content-type') || 'application/json',
+        'content-type': contentType || 'application/json',
       },
     });
   } catch (err) {
-    console.error('[MDC Proxy] Error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[MDC Proxy] Error proxying ${req.method} ${url}: ${message}`);
     return NextResponse.json(
-      { error: 'Failed to connect to MDC backend' },
+      { error: 'Failed to connect to MDC backend', detail: message },
       { status: 502 },
     );
   }
@@ -64,7 +71,7 @@ async function proxy(req: NextRequest, pathSegments: string[], body?: string) {
 function nodeFetch(
   url: string,
   options: { method: string; headers: Record<string, string>; body?: string }
-): Promise<Response> {
+): Promise<{ status: number; contentType: string; buffer: Buffer }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const reqOptions: https.RequestOptions = {
@@ -80,15 +87,11 @@ function nodeFetch(
       const chunks: Buffer[] = [];
       res.on('data', (chunk) => chunks.push(chunk));
       res.on('end', () => {
-        const buffer = Buffer.concat(chunks);
-        const responseHeaders = new Headers();
-        if (res.headers['content-type']) {
-          responseHeaders.set('content-type', res.headers['content-type'] as string);
-        }
-        resolve(new Response(buffer, {
+        resolve({
           status: res.statusCode || 500,
-          headers: responseHeaders,
-        }));
+          contentType: (res.headers['content-type'] as string) || '',
+          buffer: Buffer.concat(chunks),
+        });
       });
     });
 
