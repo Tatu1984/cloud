@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Server,
   Network,
-  Shield,
   Lock,
   Unlock,
   RefreshCw,
@@ -206,7 +205,7 @@ export default function WorkspaceDetailPage() {
   const vms = useDemo ? DEMO_VMS : realVMs;
 
   const networks = workspace?.virtualNetworks || [];
-  const hasBastion = !!workspace?.bastion;
+  // const hasBastion = !!workspace?.bastion; // Bastion removed from API response
 
   return (
     <div className="space-y-6">
@@ -306,27 +305,7 @@ export default function WorkspaceDetailPage() {
                 )}
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Bastion</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  <div className="text-2xl font-bold">
-                    {hasBastion ? (
-                      <Badge className="bg-green-600 hover:bg-green-600">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">None</Badge>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Bastion stat card removed — bastion no longer in API response */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Networks</CardTitle>
@@ -620,50 +599,7 @@ export default function WorkspaceDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Bastion Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Bastion Host</CardTitle>
-              <CardDescription>
-                Secure gateway for console access
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-between py-3">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-8 w-20" />
-                </div>
-              ) : hasBastion ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">
-                        {workspace!.bastion!.name || "Bastion"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Index: {workspace!.bastion!.index}
-                      </p>
-                    </div>
-                    <StatusBadge status={workspace!.bastion!.status} />
-                  </div>
-                  <ConsoleOpenButton
-                    variant="button"
-                    workspaceId={workspaceId}
-                    vm="bastion"
-                  />
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Shield className="mx-auto h-10 w-10 text-muted-foreground" />
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    No bastion host configured for this workspace.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Bastion Card removed — bastion no longer in API response */}
 
           {/* Networks Card */}
           <Card>
@@ -695,8 +631,9 @@ export default function WorkspaceDetailPage() {
                     <TableRow>
                       <TableHead className="w-16">Index</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Gateway</TableHead>
                       <TableHead>VLAN Tag</TableHead>
-                      <TableHead>Remote Network</TableHead>
+                      <TableHead>Remote Network ID</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -707,23 +644,20 @@ export default function WorkspaceDetailPage() {
                         </TableCell>
                         <TableCell className="font-medium">{net.name}</TableCell>
                         <TableCell>
+                          <StatusBadge status={net.gatewayStatus} />
+                        </TableCell>
+                        <TableCell>
                           {net.tag != null ? (
                             <Badge variant="outline">{net.tag}</Badge>
                           ) : (
-                            <span className="text-sm text-muted-foreground">
-                              —
-                            </span>
+                            <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          {net.remoteNetworkId ? (
-                            <span className="font-mono text-xs">
-                              {net.remoteNetworkId}
-                            </span>
+                          {net.zeroTierNetworkId ? (
+                            <span className="font-mono text-xs">{net.zeroTierNetworkId}</span>
                           ) : (
-                            <span className="text-sm text-muted-foreground">
-                              —
-                            </span>
+                            <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </TableCell>
                       </TableRow>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,269 +14,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
   Loader2,
   AlertCircle,
   RefreshCw,
   Server,
   Building2,
-  Cpu,
   CheckCircle2,
   XCircle,
-  FileBox,
-  MemoryStick,
-  HardDrive,
 } from "lucide-react";
-import { useSites, useOrganizations, useDownloadableTemplates, useDownloadTemplate } from "@/lib/mdc/hooks";
-import { Site, SiteNode, VirtualMachineTemplate, Template } from "@/lib/mdc/types";
-import { useToast } from "@/hooks/use-toast";
-
-// Format memory string
-function formatMemory(memory?: string): string {
-  if (!memory) return "N/A";
-  const mb = parseInt(memory, 10);
-  if (isNaN(mb)) return memory;
-  if (mb >= 1024) {
-    return `${Math.round(mb / 1024)} GB`;
-  }
-  return `${mb} MB`;
-}
-
-// Calculate total storage
-function getTotalStorage(storage?: { size?: number }[]): string {
-  if (!storage || storage.length === 0) return "N/A";
-  const total = storage.reduce((sum, s) => sum + (s.size || 0), 0);
-  if (total === 0) return "N/A";
-  return `${total} GB`;
-}
-
-function SiteTemplatesTab({ site }: { site: Site }) {
-  const { toast } = useToast();
-  const { data: downloadable, isLoading: loadingDownloadable } = useDownloadableTemplates(site.id);
-  const downloadMutation = useDownloadTemplate();
-
-  const hasLocalTemplates =
-    (site.virtualMachineTemplates?.length || 0) +
-    (site.bastionTemplates?.length || 0) +
-    (site.gatewayTemplates?.length || 0) > 0;
-
-  const handleDownload = async (template: Template) => {
-    try {
-      await downloadMutation.mutateAsync({
-        siteId: site.id,
-        descriptor: { digest: template.digest },
-      });
-      toast({
-        title: "Template download started",
-        description: `"${template.name}" is being downloaded to ${site.name}.`,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to download template";
-      toast({
-        title: "Download failed",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Downloadable Templates */}
-      <div>
-        <h4 className="font-medium mb-2 flex items-center gap-2">
-          Available Templates
-          {loadingDownloadable && <Loader2 className="h-3 w-3 animate-spin" />}
-        </h4>
-        {downloadable && downloadable.length > 0 ? (
-          <div className="grid gap-2">
-            {downloadable.map((t, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg border"
-              >
-                <div className="flex items-center gap-3">
-                  <FileBox className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{t.name}</span>
-                  <Badge variant="outline">v{t.revision}</Badge>
-                  <Badge variant="secondary">{t.type}</Badge>
-                  {t.downloaded && (
-                    <Badge className="bg-green-500">Downloaded</Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    {t.cores && (
-                      <span className="flex items-center gap-1">
-                        <Cpu className="h-3 w-3" />
-                        {t.cores}
-                      </span>
-                    )}
-                    {t.memory && (
-                      <span className="flex items-center gap-1">
-                        <MemoryStick className="h-3 w-3" />
-                        {formatMemory(t.memory)}
-                      </span>
-                    )}
-                  </div>
-                  {!t.downloaded && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(t)}
-                      disabled={downloadMutation.isPending}
-                    >
-                      {downloadMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        "Download"
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : !loadingDownloadable ? (
-          <p className="text-sm text-muted-foreground">
-            No templates available for download. Templates must be published to the registry first.
-          </p>
-        ) : null}
-      </div>
-
-      {/* Installed VM Templates */}
-      {site.virtualMachineTemplates && site.virtualMachineTemplates.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-2">Installed VM Templates</h4>
-          <div className="grid gap-2">
-            {site.virtualMachineTemplates.map((t, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg border"
-              >
-                <div className="flex items-center gap-3">
-                  <FileBox className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{t.name}</span>
-                  <Badge variant="outline">v{t.revision}</Badge>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {t.cores && (
-                    <span className="flex items-center gap-1">
-                      <Cpu className="h-3 w-3" />
-                      {t.cores}
-                    </span>
-                  )}
-                  {t.memory && (
-                    <span className="flex items-center gap-1">
-                      <MemoryStick className="h-3 w-3" />
-                      {formatMemory(t.memory)}
-                    </span>
-                  )}
-                  {t.storage && (
-                    <span className="flex items-center gap-1">
-                      <HardDrive className="h-3 w-3" />
-                      {getTotalStorage(t.storage)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bastion Templates */}
-      {site.bastionTemplates && site.bastionTemplates.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-2">Bastion Templates</h4>
-          <div className="grid gap-2">
-            {site.bastionTemplates.map((t, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg border"
-              >
-                <div className="flex items-center gap-3">
-                  <FileBox className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">{t.name}</span>
-                  <Badge variant="secondary">v{t.revision}</Badge>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {t.cores && (
-                    <span className="flex items-center gap-1">
-                      <Cpu className="h-3 w-3" />
-                      {t.cores}
-                    </span>
-                  )}
-                  {t.memory && (
-                    <span className="flex items-center gap-1">
-                      <MemoryStick className="h-3 w-3" />
-                      {formatMemory(t.memory)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Gateway Templates */}
-      {site.gatewayTemplates && site.gatewayTemplates.length > 0 && (
-        <div>
-          <h4 className="font-medium mb-2">Gateway Templates</h4>
-          <div className="grid gap-2">
-            {site.gatewayTemplates.map((t, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg border"
-              >
-                <div className="flex items-center gap-3">
-                  <FileBox className="h-4 w-4 text-green-500" />
-                  <span className="font-medium">{t.name}</span>
-                  <Badge variant="default">v{t.revision}</Badge>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {t.cores && (
-                    <span className="flex items-center gap-1">
-                      <Cpu className="h-3 w-3" />
-                      {t.cores}
-                    </span>
-                  )}
-                  {t.memory && (
-                    <span className="flex items-center gap-1">
-                      <MemoryStick className="h-3 w-3" />
-                      {formatMemory(t.memory)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!hasLocalTemplates && (!downloadable || downloadable.length === 0) && !loadingDownloadable && (
-        <div className="text-center py-8 text-muted-foreground">
-          <FileBox className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>No templates available for this site</p>
-          <p className="text-xs mt-1">Templates need to be published to the registry and downloaded to sites.</p>
-        </div>
-      )}
-    </div>
-  );
-}
+import { useSites } from "@/lib/mdc/hooks";
 
 export default function SitesPage() {
+  const router = useRouter();
   const { data: sites, isLoading, isError, error, refetch } = useSites();
-  const { data: organizations } = useOrganizations();
-  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
 
   // Calculate node stats
   const nodeStats = useMemo(() => {
@@ -287,11 +38,6 @@ export default function SitesPage() {
       offline: allNodes.filter((n) => !n.online).length,
     };
   }, [sites]);
-
-  // Get organization name by ID
-  const getOrgName = (orgId: string): string => {
-    return organizations?.find((o) => o.id === orgId)?.name || "Unknown";
-  };
 
   if (isLoading) {
     return (
@@ -439,14 +185,13 @@ export default function SitesPage() {
                 const totalNodes = (site.nodes || []).length;
                 const totalTemplates =
                   (site.gatewayTemplates?.length || 0) +
-                  (site.bastionTemplates?.length || 0) +
                   (site.virtualMachineTemplates?.length || 0);
 
                 return (
                   <TableRow
                     key={site.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedSite(site)}
+                    onClick={() => router.push(`/dashboard/infrastructure/sites/${site.id}`)}
                   >
                     <TableCell className="font-medium">{site.name}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -476,128 +221,6 @@ export default function SitesPage() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Site Details Dialog */}
-      <Dialog open={!!selectedSite} onOpenChange={() => setSelectedSite(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              {selectedSite?.name}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedSite?.description || "No description provided"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <Tabs defaultValue="nodes" className="mt-4">
-            <TabsList>
-              <TabsTrigger value="nodes">
-                Nodes ({selectedSite?.nodes?.length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="templates">
-                Templates (
-                {(selectedSite?.virtualMachineTemplates?.length || 0) +
-                  (selectedSite?.bastionTemplates?.length || 0) +
-                  (selectedSite?.gatewayTemplates?.length || 0)}
-                )
-              </TabsTrigger>
-              <TabsTrigger value="info">Info</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="nodes" className="space-y-4">
-              {selectedSite?.nodes && selectedSite.nodes.length > 0 ? (
-                <div className="space-y-3">
-                  {selectedSite.nodes.map((node, i) => (
-                    <Card key={i}>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Server className="h-4 w-4" />
-                            {node.name}
-                          </CardTitle>
-                          <div className="flex items-center gap-2">
-                            {node.online ? (
-                              <Badge variant="default" className="bg-green-500">
-                                Online
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive">Offline</Badge>
-                            )}
-                            {node.authorized && (
-                              <Badge variant="outline">Authorized</Badge>
-                            )}
-                            {node.configured && (
-                              <Badge variant="secondary">Configured</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      {node.cpuInfo && (
-                        <CardContent>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <p className="text-muted-foreground">CPU Model</p>
-                              <p className="font-medium">{node.cpuInfo.model}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Sockets</p>
-                              <p className="font-medium">{node.cpuInfo.sockets}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Cores</p>
-                              <p className="font-medium">{node.cpuInfo.cores}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">MHz</p>
-                              <p className="font-medium">{node.cpuInfo.mhz}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Server className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No nodes registered for this site</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="templates" className="space-y-4">
-              {selectedSite && <SiteTemplatesTab site={selectedSite} />}
-            </TabsContent>
-
-            <TabsContent value="info" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Site ID</p>
-                  <p className="font-mono text-sm">{selectedSite?.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Workspaces</p>
-                  <p className="font-medium">{selectedSite?.workspaceIds?.length || 0}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Organizations</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedSite?.organizationIds?.map((orgId) => (
-                      <Badge key={orgId} variant="outline">
-                        {getOrgName(orgId)}
-                      </Badge>
-                    ))}
-                    {!selectedSite?.organizationIds?.length && (
-                      <span className="text-muted-foreground">None assigned</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

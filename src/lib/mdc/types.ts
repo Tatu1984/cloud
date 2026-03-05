@@ -132,8 +132,10 @@ export interface VirtualNetwork {
   id: string; // UUID
   index: number;
   name: string;
+  gatewayStatus?: string;
   tag?: number;
   remoteNetworkId?: string;
+  zeroTierNetworkId?: string;
 }
 
 // ==================== Remote Network Types ====================
