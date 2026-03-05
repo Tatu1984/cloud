@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,60 +14,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
   Loader2,
   AlertCircle,
   RefreshCw,
   Globe,
-  Network,
   Users,
   CheckCircle2,
-  XCircle,
-  Clock,
-  Copy,
   Shield,
-  Router,
 } from "lucide-react";
 import { useRemoteNetworks, useWorkspaces, useSites } from "@/lib/mdc/hooks";
-import { RemoteNetwork, RemoteNetworkMember } from "@/lib/mdc/types";
-import { useToast } from "@/hooks/use-toast";
-
-// Format date for display
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "Never";
-  const date = new Date(dateStr);
-  return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-}
-
-// Format relative time
-function formatRelativeTime(dateStr?: string): string {
-  if (!dateStr) return "Never";
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-}
 
 export default function RemoteNetworksPage() {
-  const { toast } = useToast();
+  const router = useRouter();
   const { data: networks, isLoading, isError, error, refetch } = useRemoteNetworks();
   const { data: workspaces } = useWorkspaces();
   const { data: sites } = useSites();
-  const [selectedNetwork, setSelectedNetwork] = useState<RemoteNetwork | null>(null);
 
   // Calculate member stats
   const memberStats = useMemo(() => {
@@ -87,15 +49,6 @@ export default function RemoteNetworksPage() {
   // Get site name by ID
   const getSiteName = (siteId: string): string => {
     return sites?.find((s) => s.id === siteId)?.name || "Unknown";
-  };
-
-  // Copy to clipboard
-  const copyToClipboard = async (text: string, label: string) => {
-    await navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard`,
-    });
   };
 
   if (isLoading) {
@@ -247,7 +200,7 @@ export default function RemoteNetworksPage() {
                   <TableRow
                     key={network.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedNetwork(network)}
+                    onClick={() => router.push(`/dashboard/infrastructure/remote-networks/${network.id}`)}
                   >
                     <TableCell>
                       <div>
@@ -281,228 +234,6 @@ export default function RemoteNetworksPage() {
         </CardContent>
       </Card>
 
-      {/* Network Details Dialog */}
-      <Dialog open={!!selectedNetwork} onOpenChange={() => setSelectedNetwork(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              {selectedNetwork?.name || "Remote Network"}
-            </DialogTitle>
-            <DialogDescription className="flex items-center gap-2">
-              <span className="font-mono">{selectedNetwork?.id}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={() => copyToClipboard(selectedNetwork?.id || "", "Network ID")}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </DialogDescription>
-          </DialogHeader>
-
-          <Tabs defaultValue="members" className="mt-4">
-            <TabsList>
-              <TabsTrigger value="members">
-                Members ({selectedNetwork?.members?.length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="routes">Routes</TabsTrigger>
-              <TabsTrigger value="info">Info</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="members" className="space-y-4">
-              {selectedNetwork?.members && selectedNetwork.members.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Member</TableHead>
-                      <TableHead>IP Addresses</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last Online</TableHead>
-                      <TableHead>Latency</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedNetwork.members.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{member.name || member.id}</p>
-                            {member.description && (
-                              <p className="text-xs text-muted-foreground">{member.description}</p>
-                            )}
-                            <p className="text-xs font-mono text-muted-foreground">{member.id}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {member.ipAddresses?.map((ip, i) => (
-                              <div key={i} className="flex items-center gap-1">
-                                <code className="text-xs bg-muted px-1 rounded">{ip}</code>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5"
-                                  onClick={() => copyToClipboard(ip, "IP")}
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                            {(!member.ipAddresses || member.ipAddresses.length === 0) && (
-                              <span className="text-muted-foreground text-sm">No IP assigned</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {member.online ? (
-                              <Badge variant="default" className="bg-green-500 w-fit">
-                                Online
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="w-fit">
-                                Offline
-                              </Badge>
-                            )}
-                            {member.authorized ? (
-                              <Badge variant="outline" className="w-fit text-blue-600">
-                                Authorized
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="w-fit text-yellow-600">
-                                Pending
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {formatRelativeTime(member.lastOnline)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {member.latency !== undefined ? (
-                            <span className="text-sm">{member.latency}ms</span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No members in this network</p>
-                  <p className="text-sm mt-1">
-                    Join this network using the network ID: {selectedNetwork?.id}
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="routes" className="space-y-4">
-              {/* IP Assignment Pools */}
-              {selectedNetwork?.ipAssignmentPools &&
-                selectedNetwork.ipAssignmentPools.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2 flex items-center gap-2">
-                      <Network className="h-4 w-4" />
-                      IP Assignment Pools
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedNetwork.ipAssignmentPools.map((pool, i) => (
-                        <div key={i} className="flex items-center gap-2 p-3 rounded-lg border">
-                          <code className="text-sm">
-                            {pool.ipRangeStart} - {pool.ipRangeEnd}
-                          </code>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Managed Routes */}
-              {selectedNetwork?.managedRoutes &&
-                selectedNetwork.managedRoutes.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2 flex items-center gap-2">
-                      <Router className="h-4 w-4" />
-                      Managed Routes
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedNetwork.managedRoutes.map((route, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-3 rounded-lg border"
-                        >
-                          <code className="text-sm">{route.target}</code>
-                          {route.via && (
-                            <span className="text-sm text-muted-foreground">
-                              via <code>{route.via}</code>
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {!selectedNetwork?.ipAssignmentPools?.length &&
-                !selectedNetwork?.managedRoutes?.length && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Router className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No routes configured</p>
-                  </div>
-                )}
-            </TabsContent>
-
-            <TabsContent value="info" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Network ID</p>
-                  <p className="font-mono text-sm">{selectedNetwork?.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Virtual Network ID</p>
-                  <p className="font-mono text-sm">{selectedNetwork?.virtualNetworkId}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Workspace</p>
-                  <p className="font-medium">{getWorkspaceName(selectedNetwork?.workspaceId || "")}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Site</p>
-                  <p className="font-medium">{getSiteName(selectedNetwork?.siteId || "")}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground mb-2">How to Join</p>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <code className="text-sm">zerotier-cli join {selectedNetwork?.id}</code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-2"
-                      onClick={() =>
-                        copyToClipboard(
-                          `zerotier-cli join ${selectedNetwork?.id}`,
-                          "Join command"
-                        )
-                      }
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
