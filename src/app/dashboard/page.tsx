@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Server,
-  Plus,
-  ArrowUpRight,
   Network,
   Globe,
   RefreshCw,
@@ -54,14 +52,7 @@ export default function DashboardPage() {
             Welcome back! Here&apos;s an overview of your {currentProject?.name} project.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/dashboard/compute/vms/create">
-              <Plus className="mr-2 h-4 w-4" />
-              Create VM
-            </Link>
-          </Button>
-        </div>
+        {/* Create VM button removed — not in use */}
       </div>
 
       {/* Quick Actions */}
@@ -79,15 +70,15 @@ export default function DashboardPage() {
               </Link>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
-              <Link href="/dashboard/compute/vms">
-                <Server className="mr-2 h-4 w-4" />
-                Virtual Machines
+              <Link href="/dashboard/settings/organization">
+                <Building2 className="mr-2 h-4 w-4" />
+                Organizations
               </Link>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
-              <Link href="/dashboard/compute/templates">
-                <Building2 className="mr-2 h-4 w-4" />
-                VM Templates
+              <Link href="/dashboard/settings/users">
+                <Server className="mr-2 h-4 w-4" />
+                Users &amp; Teams
               </Link>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
