@@ -15,8 +15,11 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Landing Zone",
+  title: "TS Edge Nest",
   description: "Enterprise-grade cloud infrastructure platform",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

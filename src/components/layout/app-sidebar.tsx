@@ -125,15 +125,15 @@ const tenantNavItems = [
     items: [
       { title: "Organization", url: "/dashboard/settings/organization" },
       { title: "Users & Teams", url: "/dashboard/settings/users" },
-      { title: "API Keys", url: "/dashboard/settings/api-keys" },
-      { title: "Audit Log", url: "/dashboard/settings/audit-log" },
+      // { title: "API Keys", url: "/dashboard/settings/api-keys" },
+      // { title: "Audit Log", url: "/dashboard/settings/audit-log" },
     ],
   },
 ];
 
 export function TenantSidebar() {
   const pathname = usePathname();
-  const { user, organization, currentProject, projects, setCurrentProject, logout } = useAuthStore();
+  const { user, organization, logout } = useAuthStore();
 
   return (
     <Sidebar>
@@ -143,30 +143,11 @@ export function TenantSidebar() {
             <Cloud className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Landing Zone</span>
+            <span className="text-sm font-semibold">TS Edge Nest</span>
             <span className="text-xs text-muted-foreground">{organization?.name}</span>
           </div>
         </div>
-        <div className="px-2 pb-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
-                <span>{currentProject?.name || "Select project"}</span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[200px]" align="start">
-              {projects.map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onSelect={() => setCurrentProject(project)}
-                >
-                  {project.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* Environment dropdown removed — not in use */}
       </SidebarHeader>
 
       <SidebarContent>
@@ -245,9 +226,6 @@ export function TenantSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[200px]">
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings/profile">Profile</Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => logout()}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

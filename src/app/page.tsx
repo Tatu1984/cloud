@@ -130,7 +130,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight">Landing Zone</span>
+              <span className="font-bold text-xl tracking-tight">TS Edge Nest</span>
               <span className="hidden sm:inline text-xs text-slate-400 ml-2">Infrastructure Management</span>
             </div>
           </div>
@@ -455,13 +455,13 @@ export default function LandingPage() {
                 <Cloud className="h-5 w-5 text-white" />
               </div>
               <div>
-                <span className="font-bold text-lg text-white">Landing Zone</span>
+                <span className="font-bold text-lg text-white">TS Edge Nest</span>
                 <p className="text-xs text-slate-500">Infrastructure Management</p>
               </div>
             </div>
 
             <div className="flex items-center gap-6 text-sm text-slate-400">
-              <span>© 2024 Landing Zone</span>
+              <span>© 2024 TS Edge Nest</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Powered by Next.js & Go</span>
             </div>

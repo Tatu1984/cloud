@@ -1,4 +1,4 @@
-// Core Types for Landing Zone
+// Core Types for TS Edge Nest
 
 export interface User {
   id: string;
