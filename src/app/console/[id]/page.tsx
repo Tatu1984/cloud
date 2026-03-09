@@ -118,6 +118,9 @@ export default function StandaloneConsolePage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [noVNCLoaded, setNoVNCLoaded] = useState(false);
 
+  // Cache auth token to avoid re-acquiring on every connect
+  const cachedAuthRef = useRef<{ param: string; expiresAt: number } | null>(null);
+
   const vmList = workspace?.virtualMachines || [];
   const hasBastion = !!workspace?.bastion;
 
@@ -128,10 +131,11 @@ export default function StandaloneConsolePage() {
       return;
     }
 
+    // Load from local /public/novnc — avoids CDN round-trip latency on each page load
     const script = document.createElement("script");
     script.type = "module";
     script.textContent = `
-      import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/core/rfb.js";
+      import RFB from "/novnc/rfb.js";
       window.__noVNC_RFB = RFB;
       window.dispatchEvent(new Event("novnc-loaded"));
     `;
@@ -143,6 +147,20 @@ export default function StandaloneConsolePage() {
     return () => {
       window.removeEventListener("novnc-loaded", onLoaded);
     };
+  }, []);
+
+  const getCachedAuthParam = useCallback(async (): Promise<string> => {
+    const now = Date.now();
+    // Reuse cached token if it has more than 60s left
+    if (cachedAuthRef.current && cachedAuthRef.current.expiresAt - now > 60_000) {
+      return cachedAuthRef.current.param;
+    }
+    const param = await getAuthParam();
+    if (param) {
+      // Cache for 5 minutes (MSAL tokens are valid for ~1h)
+      cachedAuthRef.current = { param, expiresAt: now + 5 * 60_000 };
+    }
+    return param;
   }, []);
 
   const connect = useCallback(async () => {
@@ -170,7 +188,7 @@ export default function StandaloneConsolePage() {
     setErrorMsg("");
 
     try {
-      const authParam = await getAuthParam();
+      const authParam = await getCachedAuthParam();
       if (!authParam) {
         setErrorMsg(
           "No authentication available. Sign in or configure a dev API key."
@@ -184,9 +202,18 @@ export default function StandaloneConsolePage() {
       const rfb = new RFB(screenRef.current, wsUrl);
       rfbRef.current = rfb;
 
+      // Use CSS scaling via scaleViewport — avoids per-frame JS canvas rescaling
       rfb.scaleViewport = true;
-      rfb.resizeSession = true;
+      rfb.resizeSession = false; // Disable — sends resize on every window change, adds RTT
       rfb.clipViewport = false;
+
+      // Lower JPEG quality slightly for faster frame delivery over high-latency links.
+      // Range 0–9: 0 = best quality/slowest, 9 = lowest quality/fastest. 6 is a good balance.
+      rfb.qualityLevel = 6;
+
+      // Compression level for Tight/ZRLE encoding. Range 0–9.
+      // Higher = more CPU on server but less data over wire. 2 is low-overhead default.
+      rfb.compressionLevel = 2;
 
       rfb.addEventListener("connect", () => {
         setStatus("connected");
@@ -214,7 +241,7 @@ export default function StandaloneConsolePage() {
       );
       setStatus("error");
     }
-  }, [workspaceId, target, noVNCLoaded]);
+  }, [workspaceId, target, noVNCLoaded, getCachedAuthParam]);
 
   useEffect(() => {
     if (noVNCLoaded && workspaceId) {
@@ -232,6 +259,24 @@ export default function StandaloneConsolePage() {
       }
     };
   }, [noVNCLoaded, workspaceId, connect]);
+
+  // Debounced resize: noVNC redraws the canvas on every ResizeObserver tick.
+  // Without debouncing this fires dozens of times during window drag, each
+  // triggering a full canvas repaint. 150ms debounce eliminates the jank.
+  useEffect(() => {
+    if (!screenRef.current) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (rfbRef.current) {
+          try { rfbRef.current.scaleViewport = rfbRef.current.scaleViewport; } catch { /* ignore */ }
+        }
+      }, 150);
+    });
+    observer.observe(screenRef.current);
+    return () => { clearTimeout(timer); observer.disconnect(); };
+  }, [noVNCLoaded]);
 
   const handleDisconnect = () => {
     if (rfbRef.current) {
