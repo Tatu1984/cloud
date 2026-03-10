@@ -15,7 +15,7 @@ export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID || '',
     authority: getAuthority(),
-    redirectUri: process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || 'http://localhost:3000/auth/callback',
+    redirectUri: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : (process.env.NEXT_PUBLIC_ENTRA_REDIRECT_URI || 'http://localhost:3000/auth/callback'),
     postLogoutRedirectUri: '/',
     navigateToLoginRequestUrl: true,
     knownAuthorities: ['tensparrowsmicrodatacluster.ciamlogin.com'],
